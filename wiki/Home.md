@@ -5,7 +5,7 @@ through the SIS web API and moves each case to the tracker a test needs:
 
 **Schedule Grid → Cases to Code → Charge Entry → Insurance Billing / Patient Statements**
 
-It also creates **periods and batches**, **transaction codes**, **contracts** and **case flags**.
+It also creates **periods and batches** for the charges.
 
 ## Pages
 

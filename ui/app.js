@@ -105,7 +105,6 @@ async function loadLookups(refresh = false) {
     if (failed.length) toast(`Some lists did not load: ${failed.map(([k, v]) => `${k} (${v})`).join('; ')}`, true);
     for (const el of $$('.picker')) renderPicker(el);
     renderTrackers();
-    for (const select of $$('select[data-options]')) fillSelect(select, state.lookups[select.dataset.options]);
     renderPeriods();
     renderCalendar();
     const rooms = state.lookups.rooms;
@@ -337,25 +336,18 @@ $('#casesForm').addEventListener('submit', async (e) => {
 
 // #endregion
 
-// #region Configuration data
+// #region Period & batch
 
-function configForm(kind, build) {
-    $(`#${kind}Form`).addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const f = Object.fromEntries(new FormData(e.target));
-        try {
-            const { id } = await api(`${kind}/run`, { body: { count: Number(f.count), suffix: f.suffix, ...build(f) } });
-            watchRun(id);
-        } catch (err) {
-            toast(err.message, true);
-        }
-    });
-}
-
-configForm('transactionCodes', (f) => ({ transactionCode: { type: f.type, toDebit: Number(f.toDebit) || undefined, toCredit: Number(f.toCredit) || undefined } }));
-configForm('contracts', (f) => ({ contract: { type: f.type, effectiveDate: f.effectiveDate, expirationDate: f.expirationDate, percent: f.percent === '' ? undefined : Number(f.percent), notes: f.notes } }));
-configForm('caseFlags', (f) => ({ caseFlag: { name: f.name, abbreviation: f.abbreviation, color: f.color, visibility: f.visibility } }));
-configForm('periodBatches', (f) => ({ periodBatch: { month: f.month } }));
+$('#periodBatchesForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = Object.fromEntries(new FormData(e.target));
+    try {
+        const { id } = await api('periodBatches/run', { body: { count: Number(f.count), suffix: f.suffix, periodBatch: { month: f.month } } });
+        watchRun(id);
+    } catch (err) {
+        toast(err.message, true);
+    }
+});
 
 // #endregion
 

@@ -2,21 +2,22 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { CaseContext, CaseRecord, TrackerId } from './flows/case-flow.ts';
-import type { CreatedItem } from './flows/config-data.ts';
 import type { CarrierSetup } from './flows/insurance.ts';
 import type { PeriodBatch } from './flows/period-batch.ts';
 import type { Lookups, Option } from './lookups.ts';
 import type { ApiLog, SisClient } from './sis-client.ts';
 import { advanceCase, TRACKERS } from './flows/case-flow.ts';
-import { CONTRACT_TYPES, createCaseFlags, createContract, createTransactionCode, TRANSACTION_CODE_TYPES } from './flows/config-data.ts';
 import { createCarrier } from './flows/insurance.ts';
 import { createPeriodBatch } from './flows/period-batch.ts';
-import { cleanSuffix, errorMessage, patientName, pick, pool, randomDob, randomTag, todayYmd } from './util.ts';
+import { cleanSuffix, errorMessage, patientName, pool, randomDob, randomTag, todayYmd } from './util.ts';
 
 const RUN_DIR = join(import.meta.dirname, '..', 'runs');
 const LOG_LIMIT = 3000;
 
-export type RunKind = 'cases' | 'transactionCodes' | 'contracts' | 'caseFlags' | 'periodBatches';
+export type RunKind = 'cases' | 'periodBatches';
+
+/** One record a Period & Batch run created (or failed to). */
+export type CreatedItem = { name: string; id?: number; ok: boolean; error?: string };
 
 export type CaseRunRequest = {
     /** How many cases to put in each tracker, e.g. { casesToCode: 5, patientStatements: 20 }. */
@@ -199,70 +200,30 @@ export function retryFailed(run: Run): number {
 
 // #endregion
 
-// #region Configuration runs
+// #region Period & batch runs
 
-export type ConfigRunRequest = {
+export type PeriodBatchRunRequest = {
     count: number;
     suffix?: string;
-    /** Manual mode: every record gets these values; auto mode: left empty and varied per record. */
-    transactionCode?: { type?: string; toDebit?: number; toCredit?: number };
-    contract?: { type?: string; effectiveDate?: string; expirationDate?: string; percent?: number; notes?: string };
-    caseFlag?: { color?: string; visibility?: string; name?: string; abbreviation?: string };
     /** The period covers the month of this date (default today). */
     periodBatch?: { month?: string };
 };
 
-export function startConfigRun(base: SisClient, kind: Exclude<RunKind, 'cases'>, req: ConfigRunRequest, lookups: Lookups): Run {
-    const count = Math.max(1, Math.min(Number(req.count) || 1, 500));
+export function startPeriodBatchRun(base: SisClient, req: PeriodBatchRunRequest): Run {
+    const count = Math.max(1, Math.min(Number(req.count) || 1, 50));
     const tag = cleanSuffix(req.suffix) || randomTag();
-    const labels = { transactionCodes: 'transaction code(s)', contracts: 'contract(s)', caseFlags: 'case flag(s)', periodBatches: 'period(s) with a batch' };
-    const run = newRun(base, kind, `${count} ${labels[kind]}`, tag, count);
+    const run = newRun(base, 'periodBatches', `${count} period(s) with a batch`, tag, count);
     const client = runClient(base, run);
-    const record = (item: CreatedItem) => run.items.push(item);
-    const each = async (create: (i: number) => Promise<CreatedItem>) => {
-        for (let i = 1; i <= count && !run.stopRequested; i += 1) {
-            try {
-                record(await create(i));
-            } catch (err) {
-                record({ name: `#${i}`, ok: false, error: errorMessage(err) });
-            }
-        }
-    };
+    const month = /^\d{4}-\d{2}-\d{2}$/.test(req.periodBatch?.month ?? '') ? req.periodBatch!.month! : todayYmd();
     void (async () => {
         try {
-            if (kind === 'transactionCodes') {
-                const gl = lookups.generalLedgerAccounts;
-                await each(async (i) => {
-                    const t = req.transactionCode ?? {};
-                    const input = { name: `TC ${tag} ${i}`, type: t.type || TRANSACTION_CODE_TYPES[(i - 1) % TRANSACTION_CODE_TYPES.length], toDebit: t.toDebit || (gl.length ? pick(gl).id : undefined), toCredit: t.toCredit || (gl.length ? pick(gl).id : undefined) };
-                    const id = await createTransactionCode(client, input);
-                    return { name: `${input.name} (${input.type})`, id, ok: true };
-                });
-            } else if (kind === 'contracts') {
-                await each(async (i) => {
-                    const c = req.contract ?? {};
-                    const type = c.type || CONTRACT_TYPES[(i - 1) % CONTRACT_TYPES.length];
-                    const year = new Date().getFullYear();
-                    const input = { name: `Contract ${tag} ${i}`, type, effectiveDate: c.effectiveDate || `${year}-01-01`, expirationDate: c.expirationDate || `${year + 2}-12-31`, percent: type === 'Grouper' ? undefined : (c.percent ?? 40 + ((i * 7) % 50)), notes: c.notes };
-                    return { name: `${input.name} (${type})`, id: await createContract(client, input), ok: true };
-                });
-            } else if (kind === 'periodBatches') {
-                const month = /^\d{4}-\d{2}-\d{2}$/.test(req.periodBatch?.month ?? '') ? req.periodBatch!.month! : todayYmd();
-                await each(async (i) => {
+            for (let i = 1; i <= count && !run.stopRequested; i += 1) {
+                try {
                     const pb = await createPeriodBatch(client, count === 1 ? tag : `${tag}${i}`, month);
-                    return { name: `${pb.periodName} / ${pb.batchDescription}`, id: pb.batchId, ok: true };
-                });
-            } else {
-                const colors = ['Red', 'Orange', 'Yellow', 'Green', 'Blue', 'Purple', 'Pink', 'Black', 'Gray'];
-                const visibilities = ['Business', 'Clinical', 'Both'];
-                const f = req.caseFlag ?? {};
-                const inputs = Array.from({ length: count }, (_, k) => ({
-                    name: f.name && count === 1 ? f.name : `${f.name || 'Flag'} ${tag} ${k + 1}`,
-                    abbreviation: f.abbreviation || `${String.fromCharCode(65 + (k % 26))}${String.fromCharCode(65 + (Math.floor(k / 26) % 26))}`,
-                    color: f.color || colors[k % colors.length],
-                    visibility: f.visibility || visibilities[k % visibilities.length],
-                }));
-                await createCaseFlags(client, inputs, record, () => !!run.stopRequested);
+                    run.items.push({ name: `${pb.periodName} / ${pb.batchDescription}`, id: pb.batchId, ok: true });
+                } catch (err) {
+                    run.items.push({ name: `#${i}`, ok: false, error: errorMessage(err) });
+                }
             }
             finish(run);
         } catch (err) {

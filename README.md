@@ -1,8 +1,8 @@
 # Clinical Seeder
 
 Bulk test data for **SIS Complete clinical (ASC) facilities**. It creates patients and cases through the web API and
-takes each case to the tracker a test needs: **Scheduled → Performed (discharged) → Coded → Charged**. It also creates
-**transaction codes**, **contracts** and **case flags**.
+takes each case to the tracker a test needs: **Scheduled → Performed (discharged) → Coded → Charged**, through to the
+**Patient Statements** tracker. It also creates **periods and batches** for the charges.
 
 It runs on Node 22.6 or later and has no dependencies, so there is no build step.
 
@@ -86,12 +86,10 @@ and procedures always come from the facility's own lists, never from fixed ids.
 - **CSV export** lists each case's name, DOB, patient ID, case ID, DOS, stage, physician, room, CPTs and insurances,
   ready to hand to manual testers.
 - **Run history** is saved in `runs/`, which git ignores. You can reopen any run later.
-- **The tag goes on everything.** It is added to patient last names, carriers, period/batch, transaction codes,
-  contracts and flags, so every record traces back to its test case (e.g. `TC376164`).
+- **The tag goes on everything.** It is added to patient last names, carriers and period/batch, so every record
+  traces back to its test case (e.g. `TC376164`).
 - **Patient names can't collide.** Names are letters only and unique per run. The duplicate-patient check would
   otherwise attach a case to an existing patient.
-- **Case flags are really created.** They are saved under the facility's Case Flagging lock (record lock type 27),
-  with backoff while someone else holds the lock.
 - **Safer by default.** The server listens on `127.0.0.1` only, and each browser has its own session (an HttpOnly
   cookie). The password is used once to sign in and never stored. Tokens never appear in logs or history.
 - **Dates of service are picked on a calendar.** Cases are spread over the picked days and every room, in
@@ -104,7 +102,7 @@ All paths are under `<API URL>/api/` and send the `token` and `ChartsApp` header
 | Step | Calls |
 |---|---|
 | Sign in | `Login/LoginUser` → `UserSession/UserSessionOrg/{orgId}` |
-| Lists | `Room/GetRoomsForOrganization`, `ApptypeCasepackMap/GetApptypeCasepackMapData`, `StaffList/GetStaffForOrganization/{org}/false`, `FeeSchedule/GetFeeSchedules/`, `PeriodBatch/GetPeriodBatch/false`, `facility/business/transaction-codes/general-ledger-accounts/is-active/false` |
+| Lists | `Room/GetRoomsForOrganization`, `ApptypeCasepackMap/GetApptypeCasepackMapData`, `StaffList/GetStaffForOrganization/{org}/false`, `FeeSchedule/GetFeeSchedules/`, `PeriodBatch/GetPeriodBatch/false` |
 | Patient | `PatientData/GetDuplicatePatients` (reserves the id) → `Security/RecordLock/RequestLock` → `PatientData/Gemini/GetPatient/{id}` → `PatientData/Gemini/CreatePatient/2030` → `ReleaseLock` |
 | Insurance (once per run) | `InsuranceCarrierObject/SaveInsuranceCarrier` → `Insurance/InsertInsuranceClaimOffice` → `Insurance/UpdateInsuranceClaimOffice` → `InsurancePlan/SaveInsurancePlan` |
 | Insurance (per patient) | `Insurance/Gemini/Insert/0` |
@@ -112,9 +110,6 @@ All paths are under `<API URL>/api/` and send the `token` and `ChartsApp` header
 | Discharge | `CaseSummary/UpdateCaseSatus/{id}` with body `4`, then `10` |
 | Code | `ScheduledCaseProcedure/GetScheduledProcedures/{id}/false`, `ICDCodeClassification/GetICDCodeClassifications`, `CaseToCode/SavePerformedItems`, status `11` |
 | Charge | `PeriodConfig/UpsertCheckedPeriodObject` + `PeriodBatch/InsertBatch` (when creating), `CaseToCharge/SavePerformedProcedure/`, status `12` |
-| Transaction codes | `POST facility/business/transaction-codes` |
-| Contracts | `PUT facility/business/contracts` → posting option → `review-list/recalculate` |
-| Case flags | `CaseFlag/Colors`, `CaseFlag/Config` under `RecordLock` type 27 |
 
 The large request bodies (patient, case, charge entry and insurance) start from the request payloads in `templates/`.
 Every environment-specific id in them (patient, physician, room, appointment type, fee schedule, carrier,
@@ -124,7 +119,7 @@ period/batch) is replaced at run time.
 
 - Tested end to end against a local mock of the API. The mock enforces the contracts above: a bare-number status
   body, 4 before 10, a real physician, and a quoted ICD body. Tested so far: all four stages, insurance, period/batch
-  creation, retry, CSV, history, and all three configuration modules.
+  creation, retry, CSV and history.
 - **Not yet run against a live environment.** The first live run should be small (e.g. 2 cases per stage). Check
   Cases to Code, Charge Entry and the ledger in the app before seeding in bulk.
 - Clinical facilities only. Anesthesia Billing facilities have no discharge step, so they are not supported.
@@ -138,8 +133,7 @@ src/lookups.ts         facility lists for the forms
 src/runs.ts            run orchestration, pre-flight checks, retry, history, CSV
 src/flows/case-flow.ts patient → case → discharge → code → charge
 src/flows/insurance.ts carrier / claim office / plan, patient insurance
-src/flows/period-batch.ts
-src/flows/config-data.ts transaction codes, contracts, case flags
+src/flows/period-batch.ts open period + batch
 ui/                    single-page UI (no framework)
 templates/             request payloads
 wiki/                  the project wiki (setup, walkthrough, troubleshooting)

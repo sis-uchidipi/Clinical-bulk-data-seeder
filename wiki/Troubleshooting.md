@@ -10,6 +10,5 @@
 | `Room is double booked` | Another case already uses that room and time | Retry failed, or pick other days |
 | Cases don't show in Cases to Code | The facility has no active physician, or the case wasn't discharged | Check the case row's status and the physician list |
 | Charged cases don't show in Patient Statements | The facility's statement settings exclude them, for example a minimum balance | Raise the charge amount, or check the facility's statement settings |
-| Case flags: lock busy | Someone else is editing Case Flagging | The seeder retries with backoff. Try again later if it still fails |
 
 Each failed case shows the step that failed and the server's own message. The full call log is under **Runs**.

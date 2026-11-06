@@ -5,11 +5,10 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { extname, join } from 'node:path';
 
 import type { Lookups } from './lookups.ts';
-import type { CaseRunRequest, ConfigRunRequest, RunKind } from './runs.ts';
+import type { CaseRunRequest, PeriodBatchRunRequest } from './runs.ts';
 import { TRACKERS } from './flows/case-flow.ts';
-import { CONTRACT_TYPES, TRANSACTION_CODE_TYPES, caseFlagColors } from './flows/config-data.ts';
 import { loadLookups } from './lookups.ts';
-import { casesCsv, getRun, listRuns, publicRun, resolveCaseRun, retryFailed, startCaseRun, startConfigRun, stopRun } from './runs.ts';
+import { casesCsv, getRun, listRuns, publicRun, resolveCaseRun, retryFailed, startCaseRun, startPeriodBatchRun, stopRun } from './runs.ts';
 import { SisClient } from './sis-client.ts';
 import { errorMessage } from './util.ts';
 
@@ -115,19 +114,10 @@ const routes: [string, RegExp, Handler][] = [
     ['GET', /^\/api\/lookups$/, async (req, res, _p, query) => {
         const session = requireSession(req);
         const lookups = await lookupsOf(session, query.get('refresh') === '1');
-        let colors: string[] = [];
-        try {
-            colors = (await caseFlagColors(session.client)).map((c) => c.name);
-        } catch {
-            // Case Flagging off for the facility: the Case Flags tab says so when used
-        }
         send(res, 200, {
             ...lookups,
             feeSchedule: lookups.feeSchedule.map(({ raw: _raw, ...f }) => f),
             trackers: TRACKERS,
-            transactionCodeTypes: TRANSACTION_CODE_TYPES,
-            contractTypes: CONTRACT_TYPES,
-            caseFlagColors: colors,
         });
     }],
     ['POST', /^\/api\/cases\/check$/, async (req, res) => {
@@ -141,9 +131,9 @@ const routes: [string, RegExp, Handler][] = [
         const run = startCaseRun(session.client, await readJson<CaseRunRequest>(req), await lookupsOf(session));
         send(res, 200, { id: run.id });
     }],
-    ['POST', /^\/api\/(transactionCodes|contracts|caseFlags|periodBatches)\/run$/, async (req, res, [kind]) => {
+    ['POST', /^\/api\/periodBatches\/run$/, async (req, res) => {
         const session = requireSession(req);
-        const run = startConfigRun(session.client, kind as Exclude<RunKind, 'cases'>, await readJson<ConfigRunRequest>(req), await lookupsOf(session));
+        const run = startPeriodBatchRun(session.client, await readJson<PeriodBatchRunRequest>(req));
         send(res, 200, { id: run.id });
     }],
     ['GET', /^\/api\/runs$/, async (req, res) => {

@@ -1,10 +1,10 @@
 # Walkthrough
 
-The left menu has three groups: **Cases**, **Configuration** and **Runs**.
+The left menu has two groups: **Cases** (Patients & Cases, Period & Batch) and **Runs** (History).
 
 ## Create cases
 
-1. Under **Cases**, enter a count for each tracker you need. Each row shows the steps its cases go through and who
+1. In **Patients & Cases**, enter a count for each tracker you need. Each row shows the steps its cases go through and who
    pays (see [Trackers](Trackers.md)).
 2. Click the calendar icon in **Dates of service** and pick one or more days. Click **Done**. The field shows the
    picked dates.
@@ -28,12 +28,7 @@ Then open the tracker in SIS Complete and search by the tag or a patient name fr
 
 Creates open periods with a batch, without creating any cases.
 
-## Transaction codes, Contracts, Case flags
-
-Each tab creates that many records with the tag in their names. Case flags are saved under the facility's Case
-Flagging lock, and the tab says so when Case Flagging is off for the facility.
-
-## Run history
+## History
 
 Lists every run, including runs from earlier sessions. Open one to see its cases, log and CSV.
 

@@ -11,7 +11,6 @@ export type Lookups = {
     physicians: Option[];
     feeSchedule: FeeScheduleItem[];
     periods: PeriodOption[];
-    generalLedgerAccounts: Option[];
     /** Lookups that failed, by name, so the UI can say which list is missing and why. */
     errors: Record<string, string>;
 };
@@ -76,13 +75,12 @@ export async function loadLookups(client: SisClient): Promise<Lookups> {
             return empty;
         }
     };
-    const [rooms, appointmentTypes, staff, fees, periodList, gl] = await Promise.all([
+    const [rooms, appointmentTypes, staff, fees, periodList] = await Promise.all([
         safe('rooms', () => client.get('Room/GetRoomsForOrganization'), []),
         safe('appointmentTypes', () => client.get('ApptypeCasepackMap/GetApptypeCasepackMapData'), []),
         safe('physicians', () => client.get(`StaffList/GetStaffForOrganization/${orgId}/false`), []),
         safe('feeSchedule', () => client.get('FeeSchedule/GetFeeSchedules/'), []),
         safe('periods', () => client.get('PeriodBatch/GetPeriodBatch/false'), []),
-        safe('generalLedgerAccounts', () => client.get('facility/business/transaction-codes/general-ledger-accounts/is-active/false'), []),
     ]);
     return {
         rooms: options(asList(rooms).filter((r) => r.activeTf !== false && r.isActive !== false), (r) => r.roomId ?? r.RoomId ?? r.id, (r) => r.name ?? r.roomName ?? r.displayName),
@@ -90,7 +88,6 @@ export async function loadLookups(client: SisClient): Promise<Lookups> {
         physicians: physicians(staff),
         feeSchedule: feeSchedule(fees),
         periods: periods(periodList),
-        generalLedgerAccounts: options(gl, (g) => g.generalLedgerAccountId ?? g.glAccountId ?? g.id, (g) => [g.accountNumber ?? g.glAccountNumber, g.accountName ?? g.generalLedgerAccountName ?? g.name].filter(Boolean).join(' — ')),
         errors,
     };
 }

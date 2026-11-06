@@ -2,7 +2,7 @@
     "name": "sis-clinical-seeder",
     "version": "1.0.0",
     "private": true,
-    "description": "Bulk clinical test data for SIS Complete: patients and cases taken to Scheduled, Performed, Coded or Charged, plus transaction codes, contracts and case flags.",
+    "description": "Bulk clinical test data for SIS Complete: patients and cases taken to the tracker a test needs, through to Patient Statements, plus periods and batches.",
     "type": "module",
     "engines": {
         "node": ">=22.6"

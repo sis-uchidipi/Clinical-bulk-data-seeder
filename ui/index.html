@@ -39,7 +39,7 @@
             <ul class="login-points">
                 <li>Pick dates on a calendar; rooms, appointment types and procedures are filled in for you</li>
                 <li>Every step is checked; failed cases show why and can be retried</li>
-                <li>Transaction codes, contracts, case flags and periods/batches too</li>
+                <li>Self-pay cases charged to Ready for Bill land in Patient Statements</li>
             </ul>
         </div>
 
@@ -67,10 +67,6 @@
             <div class="side-title">Desktop</div>
             <div class="side-group">Cases</div>
             <button role="tab" data-tab="cases" class="active">Patients &amp; Cases</button>
-            <div class="side-group">Configuration</div>
-            <button role="tab" data-tab="transactionCodes">Transaction Codes</button>
-            <button role="tab" data-tab="contracts">Contracts</button>
-            <button role="tab" data-tab="caseFlags">Case Flags</button>
             <button role="tab" data-tab="periodBatches">Period &amp; Batch</button>
             <div class="side-group">Runs</div>
             <button role="tab" data-tab="history">History</button>
@@ -160,59 +156,6 @@
                 <button type="submit" class="primary" id="runCasesBtn">Create cases</button>
                 <span id="casesTotal" class="muted"></span>
             </div>
-        </form>
-
-        <!-- Transaction codes -->
-        <form id="transactionCodesForm" class="card tabpanel" data-panel="transactionCodes" hidden>
-            <div class="section-head">
-                <h2>Transaction codes</h2>
-                <p class="muted">Leave the fields on "Mixed" to cycle through every type with random GL accounts.</p>
-            </div>
-            <div class="grid four">
-                <label>How many<input name="count" type="number" min="1" max="500" value="7"></label>
-                <label>Type<select name="type" data-options="transactionCodeTypes"><option value="">Mixed (all types)</option></select></label>
-                <label>To debit (GL)<select name="toDebit" data-options="generalLedgerAccounts"><option value="">Random</option></select></label>
-                <label>To credit (GL)<select name="toCredit" data-options="generalLedgerAccounts"><option value="">Random</option></select></label>
-                <label>Tag<input name="suffix" maxlength="20" placeholder="blank = random"></label>
-            </div>
-            <div class="actions"><button class="primary">Create transaction codes</button></div>
-        </form>
-
-        <!-- Contracts -->
-        <form id="contractsForm" class="card tabpanel" data-panel="contracts" hidden>
-            <div class="section-head">
-                <h2>Contracts</h2>
-                <p class="muted">"Mixed" cycles through % of Billed Charges, Contract Fee Schedule and Grouper.</p>
-            </div>
-            <div class="grid four">
-                <label>How many<input name="count" type="number" min="1" max="500" value="3"></label>
-                <label>Type<select name="type" data-options="contractTypes"><option value="">Mixed (all types)</option></select></label>
-                <label>Effective<input name="effectiveDate" type="date"></label>
-                <label>Expires<input name="expirationDate" type="date"></label>
-                <label>% of billed / allowed<input name="percent" type="number" min="0" max="100" placeholder="blank = varied"></label>
-                <label>Tag<input name="suffix" maxlength="20" placeholder="blank = random"></label>
-                <label class="span2">Notes<input name="notes" maxlength="200"></label>
-            </div>
-            <div class="actions"><button class="primary">Create contracts</button></div>
-        </form>
-
-        <!-- Case flags -->
-        <form id="caseFlagsForm" class="card tabpanel" data-panel="caseFlags" hidden>
-            <div class="section-head">
-                <h2>Case flags</h2>
-                <p class="muted">Saved under the facility's Case Flagging lock, so it is safe while others edit flags. Case Flagging must be on for the facility.</p>
-            </div>
-            <div class="grid four">
-                <label>How many<input name="count" type="number" min="1" max="200" value="5"></label>
-                <label>Name<input name="name" maxlength="40" placeholder="blank = Flag &lt;tag&gt; n"></label>
-                <label>Abbreviation<input name="abbreviation" maxlength="2" placeholder="AA, BA, …"></label>
-                <label>Color<select name="color" data-options="caseFlagColors"><option value="">Mixed</option></select></label>
-                <label>Visibility
-                    <select name="visibility"><option value="">Mixed</option><option>Business</option><option>Clinical</option><option>Both</option></select>
-                </label>
-                <label>Tag<input name="suffix" maxlength="20" placeholder="blank = random"></label>
-            </div>
-            <div class="actions"><button class="primary">Create case flags</button></div>
         </form>
 
         <!-- Period & batch -->

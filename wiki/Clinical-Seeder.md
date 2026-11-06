@@ -4,8 +4,7 @@
 
 Clinical Seeder calls the SIS Complete web API to create patients and cases for **clinical (ASC) facilities**, then
 discharges, codes and charges them so they land in the tracker a test needs, including **Patient Statements**. It also
-creates periods and batches, transaction codes, contracts and case flags, all from a browser UI in the SIS Complete
-look.
+creates periods and batches for the charges, all from a browser UI in the SIS Complete look.
 
 ---
 
@@ -39,7 +38,7 @@ look.
 - **Insurance or self pay**: none, Primary, Primary + Secondary, or Primary + Secondary + Tertiary
 - **Insurance pipeline**: carrier → claim office → plan once per run, then bound to each patient
 - **Period & Batch**: use an existing open period/batch or create one
-- **Traceable tag**: added to every patient's last name, carrier, period, batch, transaction code, contract and flag (e.g. `TC311412`)
+- **Traceable tag**: added to every patient's last name, carrier, period and batch (e.g. `TC311412`)
 - **Unique patient names**: letters only and unique per run, so the duplicate-patient check never attaches a case to an existing patient
 - **Concurrency**: 1–10 cases in parallel (4 by default)
 - **Retries**: network errors, 429 and 5xx responses are retried with backoff
@@ -102,16 +101,14 @@ The console shows `Clinical Seeder is running: http://localhost:4100/`. Open **h
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │              Browser UI (ui/index.html + app.js)             │
-│  Cases: Patients & Cases                                     │
-│  Configuration: Transaction Codes | Contracts | Case Flags | │
-│                 Period & Batch                               │
+│  Cases: Patients & Cases | Period & Batch                    │
 │  Runs: History                                               │
 └────────────────────────────┬─────────────────────────────────┘
                              │ HTTP (127.0.0.1:4100), session cookie
 ┌────────────────────────────▼─────────────────────────────────┐
 │                     Server (src/server.ts)                   │
 │  /api/login  /api/logout  /api/session  /api/lookups         │
-│  /api/cases/check  /api/cases/run  /api/<config>/run         │
+│  /api/cases/check  /api/cases/run  /api/periodBatches/run    │
 │  /api/runs …                                                 │
 └──────┬──────────────────┬───────────────────┬────────────────┘
        │                  │                   │
@@ -121,8 +118,7 @@ The console shows `Clinical Seeder is running: http://localhost:4100/`. Open **h
 │ ApptTypes,   │  │ distribution, │  │   patient → case → discharge│
 │ Physicians,  │  │ concurrency,  │  │   → code → charge           │
 │ Fee schedule,│  │ retry, CSV,   │  │  insurance.ts               │
-│ Periods,     │  │ history       │  │  period-batch.ts            │
-│ GL accounts  │  │               │  │  config-data.ts             │
+│ Periods      │  │ history       │  │  period-batch.ts            │
 └──────┬───────┘  └───────┬───────┘  └────────┬────────────────────┘
        └──────────────────┼───────────────────┘
                ┌──────────▼──────────┐
@@ -146,14 +142,13 @@ Clinical-bulk-data-seeder/
 ├── src/
 │   ├── server.ts              # HTTP server: API routes, sessions, static UI
 │   ├── sis-client.ts          # SIS API client: login, facility check, headers, retries, call log
-│   ├── lookups.ts             # Facility lists: rooms, appointment types, physicians, fee schedule, periods, GL accounts
+│   ├── lookups.ts             # Facility lists: rooms, appointment types, physicians, fee schedule, periods
 │   ├── runs.ts                # Run orchestration: Check setup, distribution, retry, history, CSV
 │   ├── util.ts                # Templates, names, dates, slots, worker pool
 │   └── flows/
 │       ├── case-flow.ts       # Trackers; patient → case → discharge → code → charge
 │       ├── insurance.ts       # Carrier → claim office → plan; patient insurance
-│       ├── period-batch.ts    # Open period + batch
-│       └── config-data.ts     # Transaction codes, contracts, case flags
+│       └── period-batch.ts    # Open period + batch
 ├── templates/                 # Request payloads (ids replaced at run time)
 ├── ui/
 │   ├── index.html             # Single-page UI
@@ -202,8 +197,7 @@ The header then shows the **facility name and ID**. Always check it before a run
 
 - **Header**: SIS logo, facility name and ID, signed-in user, **Sign out**
 - **Left sidebar**:
-  - **Cases**: Patients & Cases
-  - **Configuration**: Transaction Codes, Contracts, Case Flags, Period & Batch
+  - **Cases**: Patients & Cases, Period & Batch
   - **Runs**: History
 - **Run monitor**: opens when a run starts. Shows progress, each case or item, **Stop**, **Retry failed**, **Download CSV** and the API call log (with a "show failures only" filter)
 
@@ -323,9 +317,6 @@ failed, with the same picks (room, slot, physician, CPTs). Patients and insuranc
 
 | View | Fields |
 |------|--------|
-| **Transaction Codes** | How many (1–500), Type (Allocation, Correction, Debit, Payment, Transfer, Unassigned Payment, Write-Off, or mixed), To debit / To credit GL account (or random), Tag |
-| **Contracts** | How many (1–500), Type (% of Billed Charges, Contract Fee Schedule, Grouper, or mixed), Effective / Expires dates, % of billed or allowed, Tag, Notes. Percentage contracts get the "At Charge Posting" posting option and a review-list recalculation, as the Contracts screen does |
-| **Case Flags** | How many (1–200), Name, Abbreviation (2 letters), Color (from the facility's flag colors, or mixed), Visibility (Clinical / Business / Both), Tag. Saved under the facility's Case Flagging lock (record lock type 27); an existing name is reported, not duplicated |
 | **Period & Batch** | How many (1–50), Month covered (the period runs from the 1st to the last day of that month), Tag |
 | **History** | Every run, including earlier sessions. Open one to see its cases, items, log and CSV |
 
@@ -341,10 +332,10 @@ All endpoints except login need the session cookie set at login.
 | `/api/login` | POST | Body `{apiUrl, organizationId, username, password}`. Signs in, checks the facility, loads lookups, sets an HttpOnly session cookie |
 | `/api/logout` | POST | Ends the session |
 | `/api/session` | GET | Current user and facility |
-| `/api/lookups` | GET | Facility lists, trackers, transaction code / contract types, flag colors. `?refresh=1` reloads them |
+| `/api/lookups` | GET | Facility lists and trackers. `?refresh=1` reloads them |
 | `/api/cases/check` | POST | Check setup for a case run |
 | `/api/cases/run` | POST | Starts a case run. Returns `{id}` |
-| `/api/transactionCodes/run`, `/api/contracts/run`, `/api/caseFlags/run`, `/api/periodBatches/run` | POST | Starts a configuration run. Returns `{id}` |
+| `/api/periodBatches/run` | POST | Creates periods with a batch. Returns `{id}` |
 | `/api/runs` | GET | Run history |
 | `/api/runs/{id}` | GET | One run: status, cases, items |
 | `/api/runs/{id}/log` | GET | The run's API call log |
@@ -387,7 +378,6 @@ All paths are under `<API URL>/api/` and send the `token` and `ChartsApp` header
 | | GET | `StaffList/GetStaffForOrganization/{orgId}/false` |
 | | GET | `FeeSchedule/GetFeeSchedules/` |
 | | GET | `PeriodBatch/GetPeriodBatch/false` |
-| | GET | `facility/business/transaction-codes/general-ledger-accounts/is-active/false` |
 | **Patient** | POST | `PatientData/GetDuplicatePatients` |
 | | POST | `Security/RecordLock/RequestLock`, `Security/RecordLock/ReleaseLock` |
 | | GET | `PatientData/Gemini/GetPatient/{patientId}` |
@@ -403,11 +393,6 @@ All paths are under `<API URL>/api/` and send the `token` and `ChartsApp` header
 | | POST | `CaseToCode/SavePerformedItems` |
 | **Charge entry** | POST | `PeriodConfig/UpsertCheckedPeriodObject`, `PeriodBatch/InsertBatch` (when creating) |
 | | POST | `CaseToCharge/SavePerformedProcedure/` |
-| **Transaction codes** | POST | `facility/business/transaction-codes` |
-| **Contracts** | PUT | `facility/business/contracts`, `facility/business/contracts/posting-option` |
-| | POST | `facility/business/contracts/review-list/recalculate` |
-| **Case flags** | GET | `CaseFlag/Colors` |
-| | GET / POST | `CaseFlag/Config` (under record lock type 27) |
 
 ---
 
@@ -442,7 +427,6 @@ All paths are under `<API URL>/api/` and send the `token` and `ChartsApp` header
 | `Room is double booked` | Another case already uses that room and time. Retry failed, or pick other days |
 | Cases missing from Cases to Code | The facility has no active physician, or discharge failed. Check the case row |
 | Charged cases missing from Patient Statements | The facility's statement settings exclude them (e.g. minimum balance). Raise the charge amount |
-| Case flags: locked by another user | Someone is editing Case Flagging. The seeder waits up to 30 seconds; try again later |
 | Anesthesia Billing facility | Not supported. Clinical Seeder is for clinical facilities only |
 
 Every failed case shows the step that failed and the server's own message. The full call log is in the run monitor.
@@ -451,8 +435,7 @@ Every failed case shows the step that failed and the server's own message. The f
 
 ## Status
 
-- Tested end to end against a local mock of the API: all trackers, insurance, period/batch, retry, CSV, history and the
-  configuration views.
+- Tested end to end against a local mock of the API: all trackers, insurance, period/batch, retry, CSV and history.
 - Live runs: start small (2 cases per tracker) on each new environment and check the trackers in the app before seeding in bulk.
 
 ---
