@@ -29,7 +29,8 @@ Enter how many cases you want in each tracker. Each row shows the steps its case
 
 | Tracker | Steps | Billing |
 |---|---|---|
-| Schedule Grid / Financial Clearance | Create case | the billing setting |
+| Schedule Grid | Create case | the billing setting |
+| Financial Clearance | Create case → **Discharge** (status 4 → 10) | the billing setting |
 | Cases to Code | Create case → **Discharge** (status 4 → 10) | the billing setting |
 | Charge Entry | … → Code (Ready to Charge, 11) | the billing setting |
 | Insurance Billing | … → Charge entry (Ready for Bill, 12) | always insured (at least a primary) |
@@ -45,6 +46,10 @@ cases:
 - and are charged into the run's period/batch.
 
 The facility's own Patient Statements settings, such as a minimum balance, still apply.
+
+**Financial Clearance.** The tracker lists a case only after it is discharged, so these cases are discharged just like
+Cases to Code cases. It also needs the patient's email, so every seeded patient gets one
+(`firstname.lastname@example.com`; example.com is reserved, so nothing is delivered).
 
 One run can fill every tracker at once. Results, the run summary and the CSV are grouped by tracker.
 

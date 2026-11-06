@@ -4,7 +4,8 @@ You choose how many cases you want in each tracker. The seeder takes each case t
 
 | Tracker | Steps | Billing |
 |---|---|---|
-| Schedule Grid / Financial Clearance | Create case | Your insurance setting |
+| Schedule Grid | Create case | Your insurance setting |
+| Financial Clearance | Create case → **Discharge** (status 4, then 10) | Your insurance setting |
 | Cases to Code | Create case → **Discharge** (status 4, then 10) | Your insurance setting |
 | Charge Entry | … → Code (Ready to Charge, status 11) | Your insurance setting |
 | Insurance Billing | … → Charge entry (Ready for Bill, status 12) | Always insured (at least a primary) |
@@ -21,6 +22,15 @@ balance. So Patient Statements cases:
 - are charged into the run's period and batch.
 
 The facility's own Patient Statements settings, such as a minimum balance, still apply.
+
+## Financial Clearance
+
+The Financial Clearance tracker lists a case only after it is discharged, so Financial Clearance cases are created and
+then discharged (status 4, then 10), the same steps as Cases to Code. A Schedule Grid case is not discharged, so it does
+not show there.
+
+The tracker also needs the patient's **email**. Every seeded patient gets one, `firstname.lastname@example.com`
+(example.com is reserved, so nothing is ever delivered).
 
 ## What is picked for you
 

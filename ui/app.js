@@ -213,7 +213,7 @@ function renderTrackers() {
             <label class="tracker-row" data-tracker="${t.id}">
                 <div class="tracker-name"><b>${esc(t.label)}</b><span>${esc(t.shows)}</span></div>
                 <div class="tracker-flow">${steps}<span class="badge ${billClass}">${esc(billText)}</span></div>
-                <input type="number" min="0" max="2000" name="tracker_${t.id}" value="${t.id === 'patientStatements' ? 5 : 0}" aria-label="Cases for ${esc(t.label)}">
+                <input type="number" min="0" max="2000" name="tracker_${t.id}" value="0" aria-label="Cases for ${esc(t.label)}">
             </label>`;
     }).join('');
     $$('#trackerRows input').forEach((i) => i.addEventListener('input', updateTotal));

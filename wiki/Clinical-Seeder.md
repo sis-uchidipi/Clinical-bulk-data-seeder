@@ -12,7 +12,7 @@ creates periods and batches for the charges, all from a browser UI in the SIS Co
 
 | Area | What it does |
 |------|--------------|
-| **Pick the tracker** | Enter how many cases you want in each tracker (Schedule Grid, Cases to Code, Charge Entry, Insurance Billing, Patient Statements). Each case goes through only the steps its tracker needs. See [Trackers](#trackers). |
+| **Pick the tracker** | Enter how many cases you want in each tracker (Schedule Grid, Financial Clearance, Cases to Code, Charge Entry, Insurance Billing, Patient Statements). Each case goes through only the steps its tracker needs. See [Trackers](#trackers). |
 | **Clinical discharge** | Cases are discharged the way the app does it: status **4 (In Progress)** then **10 (Performed)**, with a physician of the facility, so they show in Cases to Code. |
 | **Patient Statements** | Self-pay cases are charged to Ready for Bill, so the patients appear in the Patient Statements tracker. See [Patient Statements](#patient-statements). |
 | **Facility check** | Sign-in checks the facility ID against the user's own facilities and shows the facility name in the header. |
@@ -209,7 +209,8 @@ Enter how many cases you want in each tracker. Each row shows the steps its case
 
 | Tracker | Steps | Billing |
 |---------|-------|---------|
-| Schedule Grid / Financial Clearance | Create case | Your insurance setting |
+| Schedule Grid | Create case | Your insurance setting |
+| Financial Clearance | Create case → Discharge (4 → 10) | Your insurance setting |
 | Cases to Code | Create case → Discharge (4 → 10) | Your insurance setting |
 | Charge Entry | … → Code (Ready to Charge, 11) | Your insurance setting |
 | Insurance Billing | … → Charge entry (Ready for Bill, 12) | Always insured (at least a primary) |

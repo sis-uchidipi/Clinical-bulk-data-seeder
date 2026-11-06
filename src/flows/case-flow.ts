@@ -14,7 +14,8 @@ export type Stage = (typeof STAGES)[number];
  * when an insurance carries it, and in Patient Statements when the patient owes it (self pay, Ready for Bill).
  */
 export const TRACKERS = [
-    { id: 'scheduleGrid', label: 'Schedule Grid / Financial Clearance', stage: 'scheduled', billing: 'either', shows: 'Scheduled cases for today\'s schedule, check-in and Financial Clearance.' },
+    { id: 'scheduleGrid', label: 'Schedule Grid', stage: 'scheduled', billing: 'either', shows: 'Scheduled cases for the schedule grid and check-in.' },
+    { id: 'financialClearance', label: 'Financial Clearance', stage: 'performed', billing: 'either', shows: 'Discharged (Performed) cases. Financial Clearance lists a case only after discharge.' },
     { id: 'casesToCode', label: 'Cases to Code', stage: 'performed', billing: 'either', shows: 'Discharged (Performed) cases waiting to be coded.' },
     { id: 'chargeEntry', label: 'Charge Entry', stage: 'coded', billing: 'either', shows: 'Coded cases, Ready to Charge.' },
     { id: 'insuranceBilling', label: 'Insurance Billing', stage: 'charged', billing: 'insured', shows: 'Charges posted, Ready for Bill, billed to the patient\'s insurance.' },
@@ -160,6 +161,7 @@ function patientPayload(payload: any, current: any, rec: CaseRecord, patientId: 
         title: '',
         dateOfBirth: rec.dateOfBirth,
         gender: pick(['Male', 'Female']),
+        email: patientEmail(rec),
         fullName: `${rec.firstName} ${rec.lastName}`,
         fullNameWithTitle: `${rec.firstName} ${rec.lastName}`,
         fullNameWithTitlePrefixAsLastName: `${rec.lastName} ${rec.firstName}`,
@@ -174,6 +176,11 @@ function patientPayload(payload: any, current: any, rec: CaseRecord, patientId: 
         if (phone) phone.patientId = patientId;
     }
     return payload;
+}
+
+/** Financial Clearance needs the patient's email. example.com is reserved, so nothing is ever sent to it. */
+function patientEmail(rec: CaseRecord): string {
+    return `${rec.firstName}.${rec.lastName}@example.com`.toLowerCase();
 }
 
 async function addInsurances(ctx: CaseContext, rec: CaseRecord): Promise<void> {
@@ -203,7 +210,7 @@ async function createCase(ctx: CaseContext, rec: CaseRecord): Promise<void> {
         today: new Date().toISOString(),
         caseSummaryId: 0,
         patientId: rec.patientId,
-        patient: { ...payload.patient, ...pickPatientFields(patient), patientId: rec.patientId, firstName: rec.firstName, lastName: rec.lastName },
+        patient: { ...payload.patient, ...pickPatientFields(patient), patientId: rec.patientId, firstName: rec.firstName, lastName: rec.lastName, email: patientEmail(rec) },
         roomId: room.id,
         roomName: room.name,
         appointmentTypeId: appointmentType.id,

@@ -3,7 +3,7 @@
 Clinical Seeder creates bulk test data for **SIS Complete clinical (ASC) facilities**. It creates patients and cases
 through the SIS web API and moves each case to the tracker a test needs:
 
-**Schedule Grid → Cases to Code → Charge Entry → Insurance Billing / Patient Statements**
+**Schedule Grid → Financial Clearance / Cases to Code → Charge Entry → Insurance Billing / Patient Statements**
 
 It also creates **periods and batches** for the charges.
 
