@@ -1,0 +1,14 @@
+{
+    "name": "sis-clinical-seeder",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Bulk clinical test data for SIS Complete: patients and cases taken to Scheduled, Performed, Coded or Charged, plus transaction codes, contracts and case flags.",
+    "type": "module",
+    "engines": {
+        "node": ">=22.6"
+    },
+    "scripts": {
+        "start": "node --experimental-strip-types --no-warnings=ExperimentalWarning src/server.ts",
+        "typecheck": "npx -y -p typescript@5.6.3 tsc -p ."
+    }
+}

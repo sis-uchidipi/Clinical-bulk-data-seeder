@@ -1,0 +1,79 @@
+{
+    "caseInsurances": [
+        {
+            "sortOrder": 0,
+            "patientInsurance": {
+                "patientInsuranceId": 29365,
+                "patientId": 49801,
+                "carrierId": null,
+                "organizationId": 40,
+                "insuredId": 32937,
+                "insuranceId": "2796",
+                "displayName": "234",
+                "relationshipToInsured": "Self",
+                "planName": "1936Insurance",
+                "groupNumber": null,
+                "groupName": null,
+                "employer": null,
+                "authorizationNumber": null,
+                "insuranceCarrierId": 2771,
+                "insurancePlanId": 2796,
+                "claimOfficeId": null,
+                "carrier": "ACarrier1962_1",
+                "firstName": "pat2",
+                "lastName": "pat2",
+                "middleInitial": null,
+                "suffix": null,
+                "gender": "Male",
+                "dateOfBirth": "1990-01-01T00:00:00Z",
+                "address1": null,
+                "address2": null,
+                "city": null,
+                "state": null,
+                "zipCode": null,
+                "countyName": null,
+                "countryName": "United States",
+                "email": null,
+                "primaryPhone": "",
+                "insuranceClaimOfficeId": 2790,
+                "isAdditionalClaimInfClassification": false,
+                "effectiveFrom": null,
+                "effectiveTo": null,
+                "isMspInsuranceTypeClassification": false,
+                "sortOrder": null,
+                "generateClaimTf": false,
+                "isInsuranceMappedWithCharge": false,
+                "isActive": true,
+                "externalId": null,
+                "insuranceClaimOffice": {
+                    "claimOfficeId": 2790,
+                    "line1": "5th street",
+                    "line2": null,
+                    "city": "5th street",
+                    "state": "AK",
+                    "zip": "12345",
+                    "country": null,
+                    "county": null,
+                    "extendedZip": "6789",
+                    "name": "VBIT",
+                    "phone": null,
+                    "contactName": null,
+                    "insuranceCarrierObjectId": 0,
+                    "externalId": null,
+                    "sourceIdentifier": "00000000-0000-0000-0000-000000000000"
+                },
+                "payerCode": "PayersCode1234Payers",
+                "sourceIdentifier": "00000000-0000-0000-0000-000000000000"
+            },
+            "caseSummaryId": 0
+        },
+        {
+            "sortOrder": 1,
+            "patientInsurance": {}
+        },
+        {
+            "sortOrder": 2,
+            "patientInsurance": {}
+        }
+    ]
+}

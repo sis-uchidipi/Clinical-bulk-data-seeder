@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SIS Complete - Clinical Seeder</title>
+    <link rel="icon" type="image/png" href="assets/SIS-Complete-favicon-32x32.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+    <div class="brand">
+        <img class="sis-logo" src="assets/SIS_Logo.png" alt="SIS">
+        <span class="brand-divider" aria-hidden="true"></span>
+        <h1>Clinical Seeder</h1>
+    </div>
+    <div id="sessionBox" class="session" hidden>
+        <span id="sessionText"></span>
+        <button id="logoutBtn" class="ghost small">Sign out</button>
+    </div>
+</header>
+
+<main>
+    <!-- Sign in -->
+    <section id="loginView" class="login">
+        <div class="login-intro">
+            <img class="sis-complete" src="assets/SIS-Complete.png" alt="SIS Complete">
+            <span class="eyebrow">Clinical Seeder · test data for clinical facilities</span>
+            <h2>Test data in the tracker you need, in minutes.</h2>
+            <p>Create patients and cases in bulk and take them through the real workflow, all the way to the tracker your test starts from.</p>
+            <ol class="login-flow" aria-label="Workflow">
+                <li><b>Create case</b><span>Schedule Grid</span></li>
+                <li><b>Discharge</b><span>Cases to Code</span></li>
+                <li><b>Code</b><span>Charge Entry</span></li>
+                <li><b>Charge</b><span>Insurance Billing · Patient Statements</span></li>
+            </ol>
+            <ul class="login-points">
+                <li>Pick dates on a calendar; rooms, appointment types and procedures are filled in for you</li>
+                <li>Every step is checked; failed cases show why and can be retried</li>
+                <li>Transaction codes, contracts, case flags and periods/batches too</li>
+            </ul>
+        </div>
+
+        <form id="loginForm" class="login-card">
+            <h2>Login</h2>
+            <p class="muted">Use your SIS user for the environment and facility you want to fill.</p>
+            <label>Environment API URL<input name="apiUrl" required value="https://sisenterprise-api-252779e1-centralindia.siscompletedev.cloud/252779e1t1" autocomplete="url" spellcheck="false"></label>
+            <label>Facility ID<input name="organizationId" required type="number" min="1" value="54" inputmode="numeric"><small>Checked against your facilities; its name shows at the top once you're in.</small></label>
+            <div class="grid two tight">
+                <label>Username<input name="username" required autocomplete="username" spellcheck="false"></label>
+                <label>Password<input name="password" required type="password" autocomplete="current-password"></label>
+            </div>
+            <button type="submit" class="primary block">Login</button>
+            <p id="loginStatus" class="login-status" role="status"></p>
+            <p class="login-foot">
+                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Zm0 2.2 6 2.2V11c0 4-2.6 7.8-6 8.9-3.4-1.1-6-4.9-6-8.9V6.4l6-2.2Z"/></svg>
+                Runs only on this computer. Your password goes straight to the environment and is never stored.
+            </p>
+        </form>
+    </section>
+
+    <!-- Work area -->
+    <section id="appView" class="desk" hidden>
+        <nav class="tabs sidebar" role="tablist">
+            <div class="side-title">Desktop</div>
+            <div class="side-group">Cases</div>
+            <button role="tab" data-tab="cases" class="active">Patients &amp; Cases</button>
+            <div class="side-group">Configuration</div>
+            <button role="tab" data-tab="transactionCodes">Transaction Codes</button>
+            <button role="tab" data-tab="contracts">Contracts</button>
+            <button role="tab" data-tab="caseFlags">Case Flags</button>
+            <button role="tab" data-tab="periodBatches">Period &amp; Batch</button>
+            <div class="side-group">Runs</div>
+            <button role="tab" data-tab="history">History</button>
+        </nav>
+        <div class="desk-main">
+
+        <!-- Cases -->
+        <form id="casesForm" class="card tabpanel" data-panel="cases">
+            <div class="section-head">
+                <h2>Which tracker should the cases land in?</h2>
+                <p class="muted">Enter how many cases you want in each tracker. Every case is a new patient and runs only the workflow steps that tracker needs.</p>
+            </div>
+            <div class="trackers" id="trackerRows"></div>
+
+            <div class="grid two when">
+                <div class="calendar-field">
+                    <label for="dosField">Date of service</label>
+                    <div class="date-input">
+                        <input id="dosField" readonly placeholder="Pick a date" aria-haspopup="dialog" aria-controls="calendar">
+                        <button type="button" id="calendarBtn" class="icon-btn" aria-label="Open calendar" aria-expanded="false">
+                            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M7 2h2v2h6V2h2v2h3a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3V2Zm12 8H5v9h14v-9ZM5 8h14V6H5v2Zm2 4h3v3H7v-3Z"/></svg>
+                        </button>
+                        <div class="calendar popover" id="calendar" role="dialog" aria-label="Choose dates of service" hidden></div>
+                    </div>
+                    <small class="muted">Pick one or more days. Cases are spread evenly over them and over every room in the facility.</small>
+                </div>
+                <div class="grid tight">
+                    <label>Tag (traceability)<input name="suffix" maxlength="20" placeholder="e.g. TC376164 — blank = random"><small>Added to every patient's last name, carrier, period and batch.</small></label>
+                    <div class="auto-note">
+                        <b>Picked for you</b>
+                        <span id="autoRooms">Rooms: every room in the facility, in turn.</span>
+                        <span id="autoAppts">Appointment type: random for each case.</span>
+                    </div>
+                </div>
+            </div>
+
+            <details class="more" open>
+                <summary>Case details <span class="muted">— leave Physicians empty to pick at random</span></summary>
+                <div class="grid two">
+                    <div class="picker" data-list="physicians" data-label="Physicians"></div>
+                    <div class="grid tight">
+                        <label>Procedures per case<input name="proceduresPerCase" type="number" min="1" max="5" value="1"><small id="autoProcs">Random CPTs from the facility's fee schedule.</small></label>
+                        <label>Insurance
+                            <select name="insuranceCount">
+                                <option value="0">No insurance (self pay)</option>
+                                <option value="1" selected>Add insurance: Primary</option>
+                                <option value="2">Add insurance: Primary + Secondary</option>
+                                <option value="3">Add insurance: Primary + Secondary + Tertiary</option>
+                            </select>
+                            <small>For Schedule Grid, Cases to Code and Charge Entry cases. Insurance Billing always has insurance; Patient Statements is always self pay.</small>
+                        </label>
+                    </div>
+                </div>
+                <div class="grid three">
+                    <label>Charge amount<input name="chargeAmount" type="number" min="1" step="0.01" placeholder="blank = fee schedule amount"></label>
+                    <label>Diagnosis (ICD-10)<input name="diagnosisCode" value="H44.001"></label>
+                </div>
+            </details>
+
+            <details class="more" open>
+                <summary>Period / batch</summary>
+                <div class="grid three">
+                    <label>Period / batch for charges
+                        <select name="periodMode">
+                            <option value="create">Create a new one for this run</option>
+                            <option value="existing">Use an existing one</option>
+                        </select>
+                        <small id="periodHint">Used by Insurance Billing and Patient Statements cases.</small>
+                    </label>
+                    <div id="existingPeriod" class="grid two tight" hidden>
+                        <label>Period<select name="periodId"></select></label>
+                        <label>Batch<select name="batchId"></select></label>
+                    </div>
+                </div>
+            </details>
+
+            <details class="more">
+                <summary>Speed</summary>
+                <div class="grid three">
+                    <label>Cases in parallel<input name="concurrency" type="number" min="1" max="10" value="4"><small>Higher is faster but loads the environment; 4 is a safe default.</small></label>
+                </div>
+            </details>
+
+            <div id="checks" class="checks" hidden></div>
+            <div class="actions sticky">
+                <button type="button" id="checkBtn" class="ghost">Check setup</button>
+                <button type="submit" class="primary" id="runCasesBtn">Create cases</button>
+                <span id="casesTotal" class="muted"></span>
+            </div>
+        </form>
+
+        <!-- Transaction codes -->
+        <form id="transactionCodesForm" class="card tabpanel" data-panel="transactionCodes" hidden>
+            <div class="section-head">
+                <h2>Transaction codes</h2>
+                <p class="muted">Leave the fields on "Mixed" to cycle through every type with random GL accounts.</p>
+            </div>
+            <div class="grid four">
+                <label>How many<input name="count" type="number" min="1" max="500" value="7"></label>
+                <label>Type<select name="type" data-options="transactionCodeTypes"><option value="">Mixed (all types)</option></select></label>
+                <label>To debit (GL)<select name="toDebit" data-options="generalLedgerAccounts"><option value="">Random</option></select></label>
+                <label>To credit (GL)<select name="toCredit" data-options="generalLedgerAccounts"><option value="">Random</option></select></label>
+                <label>Tag<input name="suffix" maxlength="20" placeholder="blank = random"></label>
+            </div>
+            <div class="actions"><button class="primary">Create transaction codes</button></div>
+        </form>
+
+        <!-- Contracts -->
+        <form id="contractsForm" class="card tabpanel" data-panel="contracts" hidden>
+            <div class="section-head">
+                <h2>Contracts</h2>
+                <p class="muted">"Mixed" cycles through % of Billed Charges, Contract Fee Schedule and Grouper.</p>
+            </div>
+            <div class="grid four">
+                <label>How many<input name="count" type="number" min="1" max="500" value="3"></label>
+                <label>Type<select name="type" data-options="contractTypes"><option value="">Mixed (all types)</option></select></label>
+                <label>Effective<input name="effectiveDate" type="date"></label>
+                <label>Expires<input name="expirationDate" type="date"></label>
+                <label>% of billed / allowed<input name="percent" type="number" min="0" max="100" placeholder="blank = varied"></label>
+                <label>Tag<input name="suffix" maxlength="20" placeholder="blank = random"></label>
+                <label class="span2">Notes<input name="notes" maxlength="200"></label>
+            </div>
+            <div class="actions"><button class="primary">Create contracts</button></div>
+        </form>
+
+        <!-- Case flags -->
+        <form id="caseFlagsForm" class="card tabpanel" data-panel="caseFlags" hidden>
+            <div class="section-head">
+                <h2>Case flags</h2>
+                <p class="muted">Saved under the facility's Case Flagging lock, so it is safe while others edit flags. Case Flagging must be on for the facility.</p>
+            </div>
+            <div class="grid four">
+                <label>How many<input name="count" type="number" min="1" max="200" value="5"></label>
+                <label>Name<input name="name" maxlength="40" placeholder="blank = Flag &lt;tag&gt; n"></label>
+                <label>Abbreviation<input name="abbreviation" maxlength="2" placeholder="AA, BA, …"></label>
+                <label>Color<select name="color" data-options="caseFlagColors"><option value="">Mixed</option></select></label>
+                <label>Visibility
+                    <select name="visibility"><option value="">Mixed</option><option>Business</option><option>Clinical</option><option>Both</option></select>
+                </label>
+                <label>Tag<input name="suffix" maxlength="20" placeholder="blank = random"></label>
+            </div>
+            <div class="actions"><button class="primary">Create case flags</button></div>
+        </form>
+
+        <!-- Period & batch -->
+        <form id="periodBatchesForm" class="card tabpanel" data-panel="periodBatches" hidden>
+            <div class="section-head">
+                <h2>Periods and batches</h2>
+                <p class="muted">Creates open periods, each with one batch, named Period&lt;tag&gt; / Batch&lt;tag&gt;. A case run can also create its own when it posts charges.</p>
+            </div>
+            <div class="grid four">
+                <label>How many<input name="count" type="number" min="1" max="50" value="1"></label>
+                <label>Month covered<input name="month" type="date"><small>The period runs from the 1st to the last day of this date's month.</small></label>
+                <label>Tag<input name="suffix" maxlength="20" placeholder="blank = random"></label>
+            </div>
+            <div class="actions"><button class="primary">Create period &amp; batch</button></div>
+        </form>
+
+        <!-- History -->
+        <section class="card tabpanel" data-panel="history" hidden>
+            <div class="section-head row">
+                <h2>Run history</h2>
+                <button id="refreshHistory" class="ghost small">Refresh</button>
+            </div>
+            <table class="table" id="historyTable">
+                <thead><tr><th>Started</th><th>What</th><th>Environment</th><th>Status</th><th></th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </section>
+
+        <!-- Run monitor -->
+        <section id="runView" class="card" hidden>
+            <div class="section-head row">
+                <div>
+                    <h2 id="runTitle"></h2>
+                    <p id="runMeta" class="muted"></p>
+                </div>
+                <div class="actions">
+                    <button id="stopBtn" class="ghost small">Stop</button>
+                    <button id="retryBtn" class="ghost small" hidden>Retry failed</button>
+                    <a id="csvLink" class="button ghost small" hidden>Download CSV</a>
+                </div>
+            </div>
+            <div class="progress"><div id="progressBar"></div></div>
+            <div id="runStats" class="stats"></div>
+            <div id="runNotes" class="notes"></div>
+            <div class="filter-row" id="caseFilter" hidden>
+                <label class="inline"><input type="checkbox" id="onlyFailed"> show failures only</label>
+                <input type="search" id="caseSearch" placeholder="Find a patient, case id or CPT">
+            </div>
+            <div class="table-wrap"><table class="table" id="runTable"></table></div>
+            <details class="more" id="logBox">
+                <summary>API log <span class="muted" id="logCount"></span></summary>
+                <div class="table-wrap"><table class="table mono" id="logTable"></table></div>
+            </details>
+        </section>
+        </div>
+    </section>
+</main>
+<div id="toast" class="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>

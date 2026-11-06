@@ -1,0 +1,15 @@
+{
+    "electronicClaim": 1,
+    "paperForm": 1,
+    "insuranceCarrierId": 0,
+    "itemSource": 1,
+    "insuranceCarrierName": "insurance1812",
+    "insurancePlanSaveDetails": {
+        "defaultPlanTf": true,
+        "isInsurancePlanValid": false,
+        "claimOfficeId": null,
+        "planName": "1936Insurance",
+        "primaryEmcPayerid": "PayersCode1234Payers",
+        "classification": "Champus"
+    }
+}

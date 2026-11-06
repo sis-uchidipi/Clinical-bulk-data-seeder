@@ -1,0 +1,32 @@
+{
+    "caseGuarantor": [
+        {
+            "sortOrder": 1,
+            "isActive": true,
+            "patientGuarantor": {
+                "patientRelationship": "Self",
+                "patientGuarantorId": -1,
+                "patientId": 49801,
+                "dateOfBirth": "01/01/1990",
+                "gender": "Male",
+                "firstName": "pat2",
+                "lastName": "pat2",
+                "country": "United States",
+                "selectedStateId": 0,
+                "selectedCountryId": 1,
+                "phoneNumber": ""
+            },
+            "guarantorId": -1,
+            "isSelf": true
+        },
+        {
+            "sortOrder": 2,
+            "isActive": false,
+            "patientGuarantor": {
+                "selectedCountryId": 0,
+                "selectedStateId": 0
+            },
+            "isSelf": false
+        }
+    ]
+}

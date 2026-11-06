@@ -1,0 +1,22 @@
+{
+    "defaultPlanTf": true,
+    "isInsurancePlanValid": true,
+    "claimOfficeId": 6481,
+    "planName": "1936Insurance",
+    "primaryEmcPayerid": "PayersCode1234Payers",
+    "classification": "Champus",
+    "insuranceCarrierId": 6337,
+    "insurancePlanId": 6448,
+    "selectedCountry": 1,
+    "selectedState": 2,
+    "claimOfficeName": "VBIT",
+    "country": "United States",
+    "state": "AK",
+    "address1": "5th street",
+    "city": "5th street",
+    "zipCode": "12345",
+    "extendedZipCode": "6789",
+    "contactName": null,
+    "phoneNumber": null,
+    "insurancePlanContractList": []
+}
