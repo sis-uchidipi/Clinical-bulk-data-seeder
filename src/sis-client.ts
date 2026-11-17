@@ -17,6 +17,10 @@ export type RequestOptions = {
     timeoutMs?: number;
     /** Network errors, 429 and 5xx are retried this many times with backoff (default 2). */
     retries?: number;
+    /** Extra headers (e.g. the gateway's Authorization); kept out of the log like the session token. */
+    headers?: Record<string, string>;
+    /** Leave the session token off: the call carries its own Authorization. */
+    anonymous?: boolean;
 };
 
 /** An API answer that was not 2xx, with the server's own message so the run report can show why. */
@@ -52,6 +56,9 @@ export type Session = {
 };
 
 export type Facility = { organizationId: number; name: string };
+
+/** Per sign-in (token): the queue of asEnterprise switches, so only one moves the session at a time. */
+const enterpriseLocks = new Map<string, Promise<void>>();
 
 /**
  * Thin HTTP client for the SIS Complete web API (`<apiUrl>/api/...`). Sends the session token the way the web app does
@@ -136,6 +143,69 @@ export class SisClient {
         return [...found].map(([organizationId, name]) => ({ organizationId, name })).sort((a, b) => a.name.localeCompare(b.name));
     }
 
+    /**
+     * Runs `work` with this sign-in's session moved to the facility's enterprise, then moves it back to the facility,
+     * as the app does around Enterprise Configuration. Enterprise-only calls (the facility details the ERA payee needs)
+     * need it. One switch at a time per sign-in: a second caller waits, so their calls are never misrouted.
+     * Facility work running in parallel on the same sign-in would be, so callers keep case runs out of the way.
+     */
+    async asEnterprise<T>(work: (enterpriseId: number) => Promise<T>): Promise<T> {
+        const { organizationId, token } = this.session;
+        const previous = enterpriseLocks.get(token) ?? Promise.resolve();
+        let release!: () => void;
+        const mine = new Promise<void>((resolve) => (release = resolve));
+        const queued = previous.then(() => mine);
+        enterpriseLocks.set(token, queued);
+        await previous;
+        try {
+            const enterpriseId = await this.enterpriseOf(organizationId);
+            if (!enterpriseId) throw new Error(`${this.session.username} has no enterprise for facility ${organizationId} (User/UserOrgMap)`);
+            await this.post(`UserSession/UserSessionOrg/${enterpriseId}`, {});
+            try {
+                return await work(enterpriseId);
+            } finally {
+                await this.post(`UserSession/UserSessionOrg/${organizationId}`, {});
+            }
+        } finally {
+            release();
+            if (enterpriseLocks.get(token) === queued) enterpriseLocks.delete(token);
+        }
+    }
+
+    /** The enterprise a facility belongs to: the UserOrgMap row whose childOrgs hold it. Undefined when not found. */
+    async enterpriseOf(facilityId: number): Promise<number | undefined> {
+        const map = await this.get('User/UserOrgMap', { retries: 1 });
+        const idOf = (node: any) => Number(node?.organizationId ?? node?.orgId ?? node?.organizationID ?? node?.OrganizationId);
+        const search = (node: any, parent?: number): number | undefined => {
+            if (typeof node === 'string' && /^\s*[[{]/.test(node)) {
+                try {
+                    return search(JSON.parse(node), parent);
+                } catch {
+                    return undefined;
+                }
+            }
+            if (Array.isArray(node)) {
+                for (const item of node) {
+                    const hit = search(item, parent);
+                    if (hit) return hit;
+                }
+                return undefined;
+            }
+            if (!node || typeof node !== 'object') return undefined;
+            const id = idOf(node);
+            if (id === facilityId && parent && parent !== facilityId) return parent;
+            const here = Number.isFinite(id) && id > 0 ? id : parent;
+            for (const value of Object.values(node)) {
+                if (value && typeof value === 'object') {
+                    const hit = search(value, here);
+                    if (hit) return hit;
+                }
+            }
+            return undefined;
+        };
+        return search(map);
+    }
+
     private static parseToken(raw: unknown): string | undefined {
         if (typeof raw === 'string') {
             const text = raw.trim();
@@ -185,8 +255,8 @@ export class SisClient {
 
     private async once<T>(method: string, path: string, options: RequestOptions): Promise<T> {
         const url = `${SisClient.apiBase(this.session.apiUrl)}/${path.replace(/^\/+/, '')}`;
-        const headers: Record<string, string> = { Accept: 'application/json, text/plain, */*' };
-        if (this.session.token) {
+        const headers: Record<string, string> = { Accept: 'application/json, text/plain, */*', ...options.headers };
+        if (this.session.token && !options.anonymous) {
             headers.token = this.session.token;
             headers.ChartsApp = this.session.token;
         }

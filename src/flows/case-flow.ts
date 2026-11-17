@@ -1,12 +1,15 @@
 import type { FeeScheduleItem, Option } from '../lookups.ts';
 import type { SisClient } from '../sis-client.ts';
+import { ApiError } from '../sis-client.ts';
 import type { CarrierSetup, PatientInsurance } from './insurance.ts';
 import type { PeriodBatch } from './period-batch.ts';
 import { addPatientInsurance } from './insurance.ts';
+import type { EraOutcome } from './remittance.ts';
+import { postRemittance } from './remittance.ts';
 import { caseSlot, errorMessage, firstNumber, firstString, pick, sleep, template, ZERO_GUID } from '../util.ts';
 
 /** How far a case is taken. Each stage is where the case shows up for testing. */
-export const STAGES = ['scheduled', 'performed', 'coded', 'charged'] as const;
+export const STAGES = ['scheduled', 'performed', 'coded', 'charged', 'remitted'] as const;
 export type Stage = (typeof STAGES)[number];
 
 /**
@@ -20,6 +23,8 @@ export const TRACKERS = [
     { id: 'chargeEntry', label: 'Charge Entry', stage: 'coded', billing: 'either', shows: 'Coded cases, Ready to Charge.' },
     { id: 'insuranceBilling', label: 'Insurance Billing', stage: 'charged', billing: 'insured', shows: 'Charges posted, Ready for Bill, billed to the patient\'s insurance.' },
     { id: 'patientStatements', label: 'Patient Statements', stage: 'charged', billing: 'selfPay', shows: 'Charges posted, Ready for Bill, self pay: the patient owes the balance.' },
+    { id: 'rcm', label: 'Revenue Cycle Management', stage: 'charged', billing: 'either', shows: 'Charged (Ready for Bill) cases listed in the RCM tracker today: the RCM templates they fall under are set to 0 days (restorable).' },
+    { id: 'remittancePosting', label: 'Remittance Posting', stage: 'remitted', billing: 'insured', shows: 'Insured charges with an electronic remittance (835 ERA) from the primary carrier, waiting to be posted.' },
 ] as const;
 export type TrackerId = (typeof TRACKERS)[number]['id'];
 
@@ -54,6 +59,14 @@ export type CaseRecord = {
     physician?: string;
     room?: string;
     cptCodes: string[];
+    /** The ERA's check/EFT number (Remittance Posting cases): how the tracker row is found. */
+    checkNumber?: string;
+    /** What the payer's ERA does with the claim (Remittance Posting cases): paid, partly paid, deductible or denied. */
+    eraOutcome?: EraOutcome;
+    /** Cancelled by an earlier version's cleanup (kept so those runs still show it). */
+    cancelled?: boolean;
+    /** Whether the Remittance Posting list shows this case's ERA yet (undefined until the run has checked). */
+    inTracker?: boolean;
     steps: StepResult[];
     error?: string;
     /** Working data a retry needs (kept server-side, never sent to the browser). */
@@ -74,6 +87,8 @@ export type CaseContext = {
     carriers: CarrierSetup[];
     periodBatch?: PeriodBatch;
     diagnosisCode: string;
+    /** The run tag (carrier and patient names carry it, so tracker rows trace back to the run). */
+    runTag: string;
 };
 
 const stageRank = (stage: CaseRecord['reached']) => (stage === null ? -2 : stage === 'patient' ? -1 : STAGES.indexOf(stage));
@@ -109,6 +124,7 @@ export async function advanceCase(ctx: CaseContext, rec: CaseRecord): Promise<vo
             await timed(rec, 'Charge Entry', () => charge(ctx, rec));
             rec.reached = 'charged';
         }
+        // Remittance Posting cases stop here: their ERAs are posted together, several patients per ERA (remitCases).
     } catch (err) {
         rec.error = errorMessage(err);
     }
@@ -203,7 +219,6 @@ async function createCase(ctx: CaseContext, rec: CaseRecord): Promise<void> {
     const room = ctx.rooms[rec.roomIndex % ctx.rooms.length];
     const physician = pick(ctx.physicians);
     const appointmentType = pick(ctx.appointmentTypes);
-    const slot = caseSlot(rec.dateOfService, rec.slot);
     const patient = rec.savedPatient ?? {};
 
     Object.assign(payload, {
@@ -218,14 +233,6 @@ async function createCase(ctx: CaseContext, rec: CaseRecord): Promise<void> {
         primaryPhysicianId: physician.id,
         primaryPhysician: physician.name,
         duration: 15,
-        dateOfService: slot.dateOfService,
-        procedureDt: slot.startIso,
-        procedureStartDt: slot.startIso,
-        procedureStopDt: slot.stopIso,
-        procedureStartTime: slot.startIso,
-        procedureStopTime: slot.stopIso,
-        startTime: slot.startHHmm,
-        endTime: slot.stopHHmm,
     });
     payload.caseGuarantor = guarantors(payload.caseGuarantor, rec);
     payload.caseInsurances = caseInsurances(rec, ctx.client.session.organizationId);
@@ -234,13 +241,46 @@ async function createCase(ctx: CaseContext, rec: CaseRecord): Promise<void> {
     payload.noPatientStatementTf = false;
     payload.noPatientStatementTfAtAcctLevel = false;
 
-    const saved = await ctx.client.post('CaseSummaryComplex/Gemini/UpsertCaseSummary', payload, { contentType: 'text/json', timeoutMs: 180_000 });
+    const saved = await upsertCase(ctx, rec, payload);
     const caseSummaryId = firstNumber(saved?.caseSummaryId, saved?.caseSummaryID, saved?.result?.caseSummaryId);
     if (!caseSummaryId) throw new Error('the case was saved but the answer had no caseSummaryId');
     rec.caseSummaryId = caseSummaryId;
     rec.physician = physician.name;
     rec.room = room.name;
     rec.cptCodes = payload.caseProcedures.map((p: any) => p.cptCode);
+}
+
+/** Later slots tried when the room is already taken at the case's own slot. */
+const SLOT_RETRIES = 4;
+
+/**
+ * Saves the case at its slot. Some facilities (seen on Gem_Org001) answer a room that is already booked at that time,
+ * e.g. by an earlier run, with a 400 and an empty message instead of "Room is double booked". On that answer the case
+ * moves to a random later slot of the same room and day, up to SLOT_RETRIES times; a 400 with a message is a real
+ * refusal and is reported as is.
+ */
+async function upsertCase(ctx: CaseContext, rec: CaseRecord, payload: any): Promise<any> {
+    for (let attempt = 0; ; attempt += 1) {
+        const slot = caseSlot(rec.dateOfService, rec.slot);
+        Object.assign(payload, {
+            dateOfService: slot.dateOfService,
+            procedureDt: slot.startIso,
+            procedureStartDt: slot.startIso,
+            procedureStopDt: slot.stopIso,
+            procedureStartTime: slot.startIso,
+            procedureStopTime: slot.stopIso,
+            startTime: slot.startHHmm,
+            endTime: slot.stopHHmm,
+        });
+        try {
+            return await ctx.client.post('CaseSummaryComplex/Gemini/UpsertCaseSummary', payload, { contentType: 'text/json', timeoutMs: 180_000 });
+        } catch (err) {
+            const roomTaken = err instanceof ApiError && err.status === 400 && /"message":\s*""/.test(err.message);
+            if (!roomTaken || attempt >= SLOT_RETRIES) throw err;
+            // Slots 22..43 (12:30 onwards) are rarely used by this run, whose cases fill each room from 07:00.
+            rec.slot = 22 + Math.floor(Math.random() * 22);
+        }
+    }
 }
 
 function pickPatientFields(saved: any): any {
@@ -390,7 +430,7 @@ async function charge(ctx: CaseContext, rec: CaseRecord): Promise<void> {
 
     const entries = performed.map((p: any, index: number) => {
         const entry = template('chargeEntryRequest.json')[0];
-        const amount = ctx.amounts[p.cptCode] ?? p.feeScheduleItem?.amount ?? 100;
+        const amount = chargeAmount(ctx, p);
         const details = { ...(entry.transactionList?.[0]?.chargeDetails ?? {}), performedCaseProcedureId: p.performedCaseProcedureId, balance: amount, transactionId: 0, generateBill: true, generateBillStateModified: true };
         delete details.peformedCaseProcedureId;
         const transaction = { ...(entry.transactionList?.[0] ?? {}), period: { periodId, periodName }, batch: { batchId, batchDescription }, periodId, batchId, batchDescription, transactionId: 0, amount, chargeDetails: details };
@@ -412,6 +452,72 @@ async function charge(ctx: CaseContext, rec: CaseRecord): Promise<void> {
     const saved = await ctx.client.post('CaseToCharge/SavePerformedProcedure/', entries);
     if (saved === null || saved === undefined) throw new Error('charge save answered empty');
     await setCaseStatus(ctx, rec.caseSummaryId!, CASE_STATUS.readyForBill);
+}
+
+function chargeAmount(ctx: CaseContext, performed: any): number {
+    return ctx.amounts[performed.cptCode] ?? performed.feeScheduleItem?.amount ?? 100;
+}
+
+/** The most patients one ERA (one Remittance Posting tracker row) may carry. */
+export const MAX_PATIENTS_PER_ERA = 10;
+
+/**
+ * Posts the ERAs of the Remittance Posting cases that are charged and not remitted yet: `perEra` patients per ERA, in
+ * case order, each ERA one 835 from the primary carrier under one check number (so one tracker row lists them all). A
+ * failed ERA fails each of its cases at this step; Retry failed posts them again, grouped anew.
+ */
+export async function remitCases(ctx: CaseContext, cases: CaseRecord[], perEra: number, stop: () => boolean): Promise<void> {
+    const ready = cases.filter((c) => c.target === 'remitted' && c.reached === 'charged' && !c.error);
+    const size = Math.max(1, Math.min(Math.floor(perEra) || 1, MAX_PATIENTS_PER_ERA));
+    for (let i = 0; i < ready.length && !stop(); i += size) {
+        const group = ready.slice(i, i + size);
+        const started = Date.now();
+        const name = 'Electronic remittance (835)';
+        try {
+            const checkNumber = await remit(ctx, group);
+            for (const rec of group) {
+                rec.checkNumber = checkNumber;
+                rec.reached = 'remitted';
+                rec.steps.push({ name, ok: true, ms: Date.now() - started });
+            }
+        } catch (err) {
+            for (const rec of group) {
+                rec.steps.push({ name, ok: false, ms: Date.now() - started, error: errorMessage(err) });
+                rec.error = `${name}: ${errorMessage(err)}`;
+            }
+        }
+    }
+}
+
+/** One ERA from the primary carrier paying every charge of `group`; the check number starts with the first case id. */
+async function remit(ctx: CaseContext, group: CaseRecord[]): Promise<string> {
+    const primary = ctx.carriers[0];
+    if (!primary || group.some((rec) => rec.selfPay)) throw new Error('an electronic remittance needs insured cases');
+    const empty = group.find((rec) => !rec.performedItems?.length);
+    if (empty) throw new Error(`case ${empty.caseSummaryId} has no charged procedures to remit (retry it from Code)`);
+    // Numeric, as the automation repo's ERAs use (9 random digits there): the case id plus 4 digits keeps it unique.
+    const checkNumber = `${group[0].caseSummaryId}${String(Date.now()).slice(-4)}`;
+    await postRemittance(ctx.client, {
+        checkNumber,
+        payerName: primary.carrierName,
+        claims: group.map((rec) => ({
+            patientId: rec.patientId!, mrn: patientMrn(rec), firstName: rec.firstName, lastName: rec.lastName,
+            memberId: String(rec.patientInsurances[0]?.raw?.insuranceId ?? rec.patientId),
+            dateOfService: caseSlot(rec.dateOfService, 0).dateOfService,
+            charges: rec.performedItems!.map((p: any) => ({ cptCode: p.cptCode, amount: chargeAmount(ctx, p) })),
+            outcome: rec.eraOutcome ?? 'partial',
+        })),
+    });
+    return checkNumber;
+}
+
+/** The patient's MRN: the primary account number SIS gave the saved patient (the patient id if it is missing). */
+function patientMrn(rec: CaseRecord): string {
+    const saved = rec.savedPatient ?? {};
+    const mrn = saved.primaryAccountNumber
+        ?? saved.accountNumbers?.find((a: any) => a.isPrimary)?.accountNumber
+        ?? saved.accountNumbers?.[0]?.accountNumber;
+    return String(mrn || rec.patientId);
 }
 
 // #endregion

@@ -1,0 +1,48 @@
+{
+    "EdiFileType": "ClaimStatus277",
+    "EdiModel": {
+        "ClaimStatusResponseDate": "",
+        "ClaimsPerPayer": [
+            {
+                "Payer": { "Name": "", "EntityIdentifierCode": "PR", "IdentificationCodeQualifier": "PI", "IdentificationCode": "37-1320188" },
+                "InformationReceiverList": [
+                    {
+                        "ReceiverInformation": { "EntityType": "2", "LastName": "XYZ CLEARINGHOUSE", "IdentificationQualifier": "46", "IdentificationCode": "4KJL3QQLK23N" },
+                        "ServiceProviderList": [
+                            {
+                                "ServiceProviderInformation": { "EntityType": "2", "LastName": "", "IdentificationQualifier": "XX", "IdentificationCode": "1234567890", "Mrn": null },
+                                "SubscriberList": [
+                                    {
+                                        "EntityInformation": { "EntityType": "1", "LastName": "", "FirstName": "", "IdentificationQualifier": "MI", "IdentificationCode": "", "Mrn": "" },
+                                        "CaseInformationList": [
+                                            {
+                                                "ClaimTrackingNumber": "",
+                                                "CaseLevelStatusInformationList": [
+                                                    {
+                                                        "Status_STC01": { "ClaimStatusCategoryCode": "P1", "ClaimStatusCode": null, "EntityIdentifier": null },
+                                                        "Status_STC10": null,
+                                                        "Status_STC11": null,
+                                                        "StatusEffectiveDate": "",
+                                                        "FreeFormMessageText": ""
+                                                    }
+                                                ],
+                                                "PayerClaimControlNumber": "",
+                                                "PatientControlNumber": null,
+                                                "DateOfService": "",
+                                                "ChargeInformationList": null
+                                            }
+                                        ],
+                                        "DependentList": null
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "MappingErrors": null
+    },
+    "Errors": { "Index": 0, "Name": "277", "Release": "X212", "Edition": "005010", "ControlNumber": "0001", "HasCriticalErrors": false, "Codes": [], "SegmentErrors": [] },
+    "EdiSeparators": { "FieldSeparator": "*", "SegmentSeparator": "~", "ComponentElementSeparator": ":", "RepetitionSeparator": "^" }
+}

@@ -5,12 +5,18 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { extname, join } from 'node:path';
 
 import type { Lookups } from './lookups.ts';
-import type { CaseRunRequest, PeriodBatchRunRequest } from './runs.ts';
+import type { AdtRunRequest, CaseRunRequest, ClaimStatusRunRequest, PeriodBatchRunRequest } from './runs.ts';
 import { TRACKERS } from './flows/case-flow.ts';
 import { loadLookups } from './lookups.ts';
-import { casesCsv, getRun, listRuns, publicRun, resolveCaseRun, retryFailed, startCaseRun, startPeriodBatchRun, stopRun } from './runs.ts';
+import { ERA_OUTCOMES, missingEraSettings } from './flows/remittance.ts';
+import { casesCsv, getRun, listRuns, publicRun, resolveCaseRun, rerunFailedRun, retryFailed, seededCases, startAdtRun, startCaseRun, startClaimStatusRun, startPeriodBatchRun, startRcmRestoreRun, stopRun } from './runs.ts';
+import { CLAIM_STATUS_CATEGORIES, DEFAULT_ADT_SOURCE } from './flows/interfaces.ts';
 import { SisClient } from './sis-client.ts';
 import { errorMessage } from './util.ts';
+import { loadEraFromAutomationRepo } from './era-settings.ts';
+
+loadDotEnv(join(import.meta.dirname, '..', '.env'));
+const eraSource = loadEraFromAutomationRepo();
 
 const PORT = Number(process.env.PORT) || 4100;
 /** Local only by default: the server holds live session tokens. Set HOST=0.0.0.0 to share it on purpose. */
@@ -31,6 +37,25 @@ class HttpError extends Error {
 }
 
 // #region Plumbing
+
+/**
+ * KEY=value lines from the git-ignored .env (the ERA app credentials). Variables already set in the shell win. Values
+ * are never printed.
+ */
+function loadDotEnv(file: string): void {
+    let text: string;
+    try {
+        text = readFileSync(file, 'utf8');
+    } catch {
+        return;
+    }
+    for (const line of text.split(/\r?\n/)) {
+        const match = /^\s*([A-Za-z_]\w*)\s*=\s*(.*?)\s*$/.exec(line);
+        if (!match) continue;
+        const value = match[2].replace(/^(['"])(.*)\1$/, '$2');
+        if (process.env[match[1]] === undefined) process.env[match[1]] = value;
+    }
+}
 
 function send(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
     const isText = typeof body === 'string';
@@ -118,6 +143,9 @@ const routes: [string, RegExp, Handler][] = [
             ...lookups,
             feeSchedule: lookups.feeSchedule.map(({ raw: _raw, ...f }) => f),
             trackers: TRACKERS,
+            /** Remittance Posting needs the local ERA settings (npm run setup); the UI says so on that row. */
+            eraMissing: missingEraSettings(),
+            eraOutcomes: Object.entries(ERA_OUTCOMES).map(([id, o]) => ({ id, name: o.label })),
         });
     }],
     ['POST', /^\/api\/cases\/check$/, async (req, res) => {
@@ -128,7 +156,9 @@ const routes: [string, RegExp, Handler][] = [
     }],
     ['POST', /^\/api\/cases\/run$/, async (req, res) => {
         const session = requireSession(req);
-        const run = startCaseRun(session.client, await readJson<CaseRunRequest>(req), await lookupsOf(session));
+        const body = await readJson<CaseRunRequest>(req);
+        const lookups = await lookupsOf(session);
+        const run = startSetup(() => startCaseRun(session.client, body, lookups));
         send(res, 200, { id: run.id });
     }],
     ['POST', /^\/api\/periodBatches\/run$/, async (req, res) => {
@@ -164,12 +194,46 @@ const routes: [string, RegExp, Handler][] = [
         send(res, 200, { ok: true });
     }],
     ['POST', /^\/api\/runs\/([\w-]+)\/retry$/, async (req, res, [id]) => {
-        requireSession(req);
+        const session = requireSession(req);
         const run = getRun(id);
         if (!run) throw new HttpError(404, 'no such run');
-        send(res, 200, { retried: retryFailed(run) });
+        const lookups = await lookupsOf(session);
+        send(res, 200, { retried: startSetup(() => retryFailed(session.client, run, lookups)) });
+    }],
+    ['POST', /^\/api\/runs\/([\w-]+)\/rerun$/, async (req, res, [id]) => {
+        const session = requireSession(req);
+        const lookups = await lookupsOf(session, true);
+        send(res, 200, { id: startSetup(() => rerunFailedRun(session.client, id, lookups)).id });
+    }],
+    ['POST', /^\/api\/runs\/([\w-]+)\/restore-rcm$/, async (req, res, [id]) => {
+        const session = requireSession(req);
+        send(res, 200, { id: startSetup(() => startRcmRestoreRun(session.client, id)).id });
+    }],
+    // Interfaces: messages filled from seeded cases / patients, instead of hand-edited Postman requests.
+    ['GET', /^\/api\/interfaces\/cases$/, async (req, res) => {
+        const session = requireSession(req);
+        send(res, 200, { cases: seededCases(session.client), categories: CLAIM_STATUS_CATEGORIES, adtSource: DEFAULT_ADT_SOURCE });
+    }],
+    ['POST', /^\/api\/interfaces\/claim-status\/run$/, async (req, res) => {
+        const session = requireSession(req);
+        const body = await readJson<ClaimStatusRunRequest>(req);
+        send(res, 200, { id: startSetup(() => startClaimStatusRun(session.client, body)).id });
+    }],
+    ['POST', /^\/api\/interfaces\/adt\/run$/, async (req, res) => {
+        const session = requireSession(req);
+        const body = await readJson<AdtRunRequest>(req);
+        send(res, 200, { id: startSetup(() => startAdtRun(session.client, body)).id });
     }],
 ];
+
+/** A refused setup run (busy sign-in, nothing to do, wrong facility) answers 409 with the reason. */
+function startSetup<T>(start: () => T): T {
+    try {
+        return start();
+    } catch (err) {
+        throw new HttpError(409, errorMessage(err));
+    }
+}
 
 function lookupSummary(l: Lookups) {
     return { rooms: l.rooms.length, appointmentTypes: l.appointmentTypes.length, physicians: l.physicians.length, procedures: l.feeSchedule.length, periods: l.periods.length, errors: l.errors };
@@ -198,4 +262,7 @@ setInterval(() => {
 
 server.listen(PORT, HOST, () => {
     console.log(`Clinical Seeder is running: http://localhost:${PORT}/`);
+    console.log(eraSource.from === 'none'
+        ? 'Remittance Posting: no ERA app values (no automation repo next to this folder, no .env). Run npm run setup, or set SIS_AUTOMATION_REPO.'
+        : `Remittance Posting: ERA app values from the ${eraSource.from}${eraSource.path ? ` (${eraSource.path})` : ''}.`);
 });

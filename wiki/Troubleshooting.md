@@ -10,5 +10,7 @@
 | `Room is double booked` | Another case already uses that room and time | Retry failed, or pick other days |
 | Cases don't show in Cases to Code | The facility has no active physician, or the case wasn't discharged | Check the case row's status and the physician list |
 | Charged cases don't show in Patient Statements | The facility's statement settings exclude them, for example a minimum balance | Raise the charge amount, or check the facility's statement settings |
+| Remittance Posting row says **Needs the ERA app values** | No automation repo next to the seeder, and no `.env` | Clone `SISDomainsAutomation` next to the seeder (or set `SIS_AUTOMATION_REPO`), or run `npm run setup`; then restart |
+| ERA step: `ERA app token → 400/401` | A wrong ERA tenant id, client id or secret | Run `npm run setup` again with the values from your team lead |
 
 Each failed case shows the step that failed and the server's own message. The full call log is under **Runs**.

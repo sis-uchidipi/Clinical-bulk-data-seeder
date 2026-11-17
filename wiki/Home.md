@@ -15,6 +15,7 @@ It also creates **periods and batches** for the charges.
 | [Setup](Setup.md) | Install, start, and sign in |
 | [Walkthrough](Walkthrough.md) | Each tab, step by step, with what the app shows afterwards |
 | [Trackers](Trackers.md) | Which steps and billing each tracker's cases get |
+| [Interfaces](Interfaces.md) | 277 claim status and inbound ADT messages filled from seeded cases, instead of Postman |
 | [Troubleshooting](Troubleshooting.md) | Common errors and what to do |
 
 ## At a glance

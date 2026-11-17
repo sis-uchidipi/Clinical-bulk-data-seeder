@@ -1,0 +1,191 @@
+{
+    "EdiModel": {
+        "TransactionHandlingCode": "I",
+        "TotalPaymentAmount": 0,
+        "CreditDebitFlag": "credit",
+        "PaymentMethod": "ach",
+        "PaymentFormatCode": "CCP",
+        "SenderDfiIdentificationNumberQualifier": "01",
+        "SenderDfiIdentificationNumber": "061112788",
+        "SenderBankAccountNumberQualifier": "DA",
+        "SenderBankAccountNumber": "003359169854",
+        "OriginatingCompanyIdentifier": "1131851754",
+        "OriginatingCompanySupplementalCode": null,
+        "ReceiverDfiIdentificationNumberQualifier": "01",
+        "ReceiverDfiIdentificationNumber": "021302884",
+        "ReceiverBankAccountNumberQualifier": "DA",
+        "ReceiverBankAccountNumber": "6012694",
+        "PaymentDate": "",
+        "CheckOrEftNumber": "",
+        "PayerIdentifier": "1131851754",
+        "ReferenceIdentification": null,
+        "Payer": {
+            "Address": {
+                "AddressLine1": "P.O. BOX 31370",
+                "AddressLine2": null,
+                "City": "TAMPA",
+                "State": "FL",
+                "PostalCode": "33631",
+                "CountryCode": null,
+                "CountrySubdivisionCode": null,
+                "MappingErrors": null
+            },
+            "Name": "",
+            "EntityIdentifierCode": "PR",
+            "IdentificationCodeQualifier": "XV",
+            "IdentificationCode": "131851754",
+            "EntityTypeQualifier": null,
+            "BusinessContactInformation": null,
+            "WebsiteInformation": null,
+            "MappingErrors": null
+        },
+        "Payee": {
+            "Name": "",
+            "Address": {
+                "AddressLine1": "135 NORTH RD",
+                "AddressLine2": null,
+                "City": "GANSEVOORT",
+                "State": "NY",
+                "PostalCode": "12831",
+                "CountryCode": null,
+                "CountrySubdivisionCode": null,
+                "MappingErrors": null
+            },
+            "EntityIdentifierCode": "PE",
+            "IdentificationCodeQualifier": "FI",
+            "IdentificationCode": "",
+            "FederalTaxId": "",
+            "MedicaidTaxId": null,
+            "AdditionalIds": [],
+            "MappingErrors": null
+        },
+        "ClaimRemittanceDataSets": [
+            {
+                "AssignedNumber": "1",
+                "PaymentClaims": [
+                    {
+                        "SubmittersId": "",
+                        "StatusCode": "1",
+                        "ChargeAmount": 0,
+                        "PaymentAmount": 0,
+                        "PatientResponsibilityAmount": 0,
+                        "FilingIndicatorCode": "MB",
+                        "ReferenceId": "",
+                        "FacilityCodeValue": "83",
+                        "ClaimFrequencyTypeCode": "1",
+                        "PatientStatusCode": null,
+                        "DiagnosisRelatedGroupCode": null,
+                        "DiagnosisRelatedGroupWeight": 0,
+                        "DischargeFraction": 0,
+                        "ClaimAdjustments": [],
+                        "Patient": {
+                            "EntityType": "1",
+                            "LastName": "",
+                            "FirstName": "",
+                            "MiddleName": null,
+                            "Prefix": null,
+                            "Suffix": null,
+                            "IdentificationQualifier": "MI",
+                            "IdentificationCode": "",
+                            "Ssn": null,
+                            "Mrn": "",
+                            "IdentifierCode": "QC",
+                            "MappingErrors": null
+                        },
+                        "Insured": null,
+                        "ServiceProvider": {
+                            "EntityType": "2",
+                            "LastName": "",
+                            "FirstName": null,
+                            "MiddleName": null,
+                            "Prefix": null,
+                            "Suffix": null,
+                            "IdentificationQualifier": "XX",
+                            "IdentificationCode": "1093053381",
+                            "Ssn": null,
+                            "Mrn": null,
+                            "IdentifierCode": "82",
+                            "MappingErrors": null
+                        },
+                        "CrossoverCarrier": null,
+                        "SubscriberId": null,
+                        "StateLicenseNumber": null,
+                        "CaseDateOfService": "",
+                        "Payments": [
+                            {
+                                "Procedures": [
+                                    {
+                                        "ProcedureCodeType": "HC",
+                                        "ProcedureCode": "",
+                                        "Modifier1": null,
+                                        "Modifier2": null,
+                                        "Modifier3": null,
+                                        "Modifier4": null,
+                                        "Description": null,
+                                        "ProductServiceId": null,
+                                        "MappingErrors": null
+                                    }
+                                ],
+                                "ChargeAmount": 0,
+                                "PaymentAmount": 0,
+                                "RevenueCode": "0490",
+                                "Units": 1,
+                                "CaseDateOfServices": [""],
+                                "PaymentAdjustments": [
+                                    {
+                                        "AdjustmentGroupCode": "CO",
+                                        "Adjustments": [
+                                            {
+                                                "ReasonCode": "45",
+                                                "Amount": 0,
+                                                "Quantity": 0,
+                                                "MappingErrors": null
+                                            }
+                                        ],
+                                        "MappingErrors": null
+                                    },
+                                    {
+                                        "AdjustmentGroupCode": "PR",
+                                        "Adjustments": [
+                                            {
+                                                "ReasonCode": "2",
+                                                "Amount": 0,
+                                                "Quantity": 0,
+                                                "MappingErrors": null
+                                            }
+                                        ],
+                                        "MappingErrors": null
+                                    }
+                                ],
+                                "PhysicianId": null,
+                                "Remarks": [],
+                                "MappingErrors": null
+                            }
+                        ],
+                        "MappingErrors": null
+                    }
+                ],
+                "MappingErrors": null
+            }
+        ],
+        "MappingErrors": null
+    },
+    "Errors": {
+        "Index": 0,
+        "Message": null,
+        "Name": null,
+        "Release": null,
+        "Edition": null,
+        "ControlNumber": null,
+        "HasCriticalErrors": false,
+        "Codes": null,
+        "SegmentErrors": null
+    },
+    "EdiSeparators": {
+        "FieldSeparator": "|",
+        "SegmentSeparator": "~",
+        "ComponentElementSeparator": "^",
+        "RepetitionSeparator": "}"
+    },
+    "EdiFileType": "ElectronicRemittanceAdvice835"
+}

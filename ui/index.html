@@ -35,11 +35,13 @@
                 <li><b>Discharge</b><span>Financial Clearance · Cases to Code</span></li>
                 <li><b>Code</b><span>Charge Entry</span></li>
                 <li><b>Charge</b><span>Insurance Billing · Patient Statements</span></li>
+                <li><b>ERA</b><span>Remittance Posting</span></li>
             </ol>
             <ul class="login-points">
                 <li>Pick dates on a calendar; rooms, appointment types and procedures are filled in for you</li>
                 <li>Every step is checked; failed cases show why and can be retried</li>
                 <li>Self-pay cases charged to Ready for Bill land in Patient Statements</li>
+                <li>Insured cases get an electronic remittance (835) and land in Remittance Posting</li>
             </ul>
         </div>
 
@@ -68,6 +70,8 @@
             <div class="side-group">Cases</div>
             <button role="tab" data-tab="cases" class="active">Patients &amp; Cases</button>
             <button role="tab" data-tab="periodBatches">Period &amp; Batch</button>
+            <div class="side-group">Environment</div>
+            <button role="tab" data-tab="interfaces">Interfaces</button>
             <div class="side-group">Runs</div>
             <button role="tab" data-tab="history">History</button>
         </nav>
@@ -116,7 +120,21 @@
                                 <option value="2">Add insurance: Primary + Secondary</option>
                                 <option value="3">Add insurance: Primary + Secondary + Tertiary</option>
                             </select>
-                            <small>For Schedule Grid, Financial Clearance, Cases to Code and Charge Entry cases. Insurance Billing always has insurance; Patient Statements is always self pay.</small>
+                            <small>For Schedule Grid, Financial Clearance, Cases to Code and Charge Entry cases. Insurance Billing and Remittance Posting always have insurance; Patient Statements is always self pay.</small>
+                        </label>
+                        <label>ERA outcome (Remittance Posting)
+                            <select name="eraOutcome">
+                                <option value="partial" selected>Partial payment: paid 80%, CO-45 10%, PR-2 10%</option>
+                                <option value="full">Paid in full</option>
+                                <option value="deductible">Applied to deductible: paid 0, PR-1</option>
+                                <option value="denied">Denied: paid 0, CO-50</option>
+                                <option value="mixed">Mix: rotate through all four</option>
+                            </select>
+                            <small>What the payer's 835 does with each Remittance Posting case's charges.</small>
+                        </label>
+                        <label>Patients per ERA (Remittance Posting)
+                            <input name="patientsPerEra" type="number" min="1" max="10" step="1" value="1" placeholder="1–10 patients per tracker record">
+                            <small id="eraGroupHint">The Remittance Posting count above is the number of tracker records; each record (one ERA, one check number) gets this many patients.</small>
                         </label>
                     </div>
                 </div>
@@ -134,7 +152,7 @@
                             <option value="create">Create a new one for this run</option>
                             <option value="existing">Use an existing one</option>
                         </select>
-                        <small id="periodHint">Used by Insurance Billing and Patient Statements cases.</small>
+                        <small id="periodHint">Used by Insurance Billing, Patient Statements and Remittance Posting cases.</small>
                     </label>
                     <div id="existingPeriod" class="grid two tight" hidden>
                         <label>Period<select name="periodId"></select></label>
@@ -172,6 +190,43 @@
             <div class="actions"><button class="primary">Create period &amp; batch</button></div>
         </form>
 
+        <!-- Interfaces -->
+        <section class="card tabpanel" data-panel="interfaces" hidden>
+            <div class="section-head">
+                <h2>Interface messages</h2>
+                <p class="muted">Sends the messages testers usually hand-edit in Postman, filled from the patients and cases this seeder created on the signed-in facility, so names, DOS and member IDs always match. Each send is a run in History.</p>
+            </div>
+
+            <h3>277 claim status</h3>
+            <div class="actions">
+                <button type="button" id="loadSeededCases" class="ghost">Load seeded cases</button>
+                <input id="seededSearch" placeholder="Search name, case id, tracker or run tag" hidden>
+                <label class="inline" id="insuredOnlyLabel" hidden><input type="checkbox" id="insuredOnly" checked> insured, charged cases only</label>
+                <span id="seededInfo" class="muted"></span>
+            </div>
+            <div class="setup-scroll" id="seededBox" hidden>
+                <table class="table" id="seededTable"></table>
+            </div>
+            <div class="grid three" id="claimStatusOptions" hidden>
+                <label>Status (STC01)<select id="claimCategory"></select></label>
+                <label>Claim Status Remark<input id="claimRemark" maxlength="264" placeholder="blank = the status text"></label>
+                <label>ICN (Claim Tracking Number)<input id="claimIcn" maxlength="50" placeholder="blank = generated; used when one case is picked"></label>
+            </div>
+            <div class="actions" id="claimStatusActions" hidden>
+                <button type="button" id="sendClaimStatus" class="primary">Send 277</button>
+                <span id="seededPicked" class="muted"></span>
+            </div>
+
+            <h3>Inbound ADT patients</h3>
+            <div class="grid four">
+                <label>How many<input id="adtCount" type="number" min="1" max="200" value="1"></label>
+                <label>Tag<input id="adtTag" maxlength="20" placeholder="blank = random"></label>
+                <label>Data source identifier<input id="adtSource" placeholder="loads with the cases"><small>Must be registered on the enterprise (Data Sources).</small></label>
+                <label class="inline"><input type="checkbox" id="adtInsurance" checked> with a primary insurance</label>
+            </div>
+            <div class="actions"><button type="button" id="sendAdt" class="primary">Send ADT</button><span class="muted">New patients with random external MRNs, like an ADT feed. The facility needs Inbound ADT turned on.</span></div>
+        </section>
+
         <!-- History -->
         <section class="card tabpanel" data-panel="history" hidden>
             <div class="section-head row">
@@ -194,6 +249,8 @@
                 <div class="actions">
                     <button id="stopBtn" class="ghost small">Stop</button>
                     <button id="retryBtn" class="ghost small" hidden>Retry failed</button>
+                    <button id="rerunBtn" class="ghost small" hidden title="This run failed before its cases; start the same request again under a fresh tag">Run again</button>
+                    <button id="restoreRcmBtn" class="ghost small" hidden title="Put back the RCM template days this run set to 0">Restore RCM template days</button>
                     <a id="csvLink" class="button ghost small" hidden>Download CSV</a>
                 </div>
             </div>

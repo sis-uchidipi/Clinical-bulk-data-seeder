@@ -18,7 +18,10 @@ The left menu has two groups: **Cases** (Patients & Cases, Period & Batch) and *
 
 When the run ends:
 
-- **Retry failed** re-runs only the failed cases, each from the step where it stopped.
+- **Retry failed** appears when cases failed. It re-runs only those, each from the step where it stopped, also on a
+  run opened from History or from before a restart.
+- **Run again** appears only when the whole run failed (e.g. in setup, before any case was made). It starts the same
+  request again under a fresh tag.
 - **Download CSV** gives every case's name, DOB, patient ID, case ID, date of service, tracker, physician, room, CPTs
   and billing.
 
